@@ -2,7 +2,7 @@ aiofiles==23.2.1
 aiohttp==3.10.5
 azure-common==1.1.28
 azure-core==1.29.7
-azure-identity==1.15.0
+azure-identity==1.16.1
 azure-search-documents==11.4.0b11
 azure-storage-blob==12.19.0
 blinker==1.7.0
