@@ -6,7 +6,7 @@ azure-functions
 
 certifi==2023.11.17
 charset-normalizer==3.3.2
-idna==3.6
+idna==3.7
 requests==2.32.2
 tenacity==8.2.3
 urllib3==2.2.0
