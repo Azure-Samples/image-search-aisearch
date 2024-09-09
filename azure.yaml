@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: ai-chat-app-hack-vision
+services:
+  api:
+    project: ./customskill
+    language: python
+    host: function
+  frontend:
+    project: ./app/frontend
+    language: ts
+    host: appservice
+hooks:
+  prepackage:
+    shell: pwsh
+    run:  cd ./app/frontend;npm install;npm run build
+    interactive: true
+    continueOnError: false
+  postdeploy:
+    windows:
+      shell: pwsh
+      run: python ./scripts/setup_search_service.py
+      interactive: true
+      continueOnError: false
+    posix:
+      shell: sh
+      run: python ./scripts/setup_search_service.py
+      interactive: true
+      continueOnError: false
