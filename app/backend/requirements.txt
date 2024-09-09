@@ -31,7 +31,7 @@ priority==2.0.0
 pycparser==2.21
 PyJWT==2.8.0
 Quart==0.19.4
-requests==2.31.0
+requests==2.32.2
 six==1.16.0
 typing_extensions==4.9.0
 urllib3==2.2.2
