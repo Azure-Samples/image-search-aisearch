@@ -32,7 +32,7 @@ const Layout = () => {
             <header className={styles.header} role={"banner"}>
                 <div className={styles.headerContainer}>
                     <Link to="/" className={styles.headerTitleContainer}>
-                        <h3 className={styles.headerTitle}>AI Chat App Hack Vision | Sample</h3>
+                        <h3 className={styles.headerTitle}>Image Search | Sample</h3>
                     </Link>
                     <nav>
                         <ul className={styles.headerNavList}>
@@ -50,7 +50,7 @@ const Layout = () => {
                             </li>
                         </ul>
                     </nav>
-                    <h4 className={styles.headerRightText}>Image search with Azure AI Search</h4>
+                    <h4 className={styles.headerRightText}>Azure AI Search + Azure AI Vision</h4>
                 </div>
             </header>
             <div className={styles.container}>
