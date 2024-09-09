@@ -1,21 +1,3 @@
-Write-Host ""
-Write-Host "Loading azd .env file from current environment"
-Write-Host ""
-
-foreach ($line in (& azd env get-values)) {
-    if ($line -match "([^=]+)=(.*)") {
-        $key = $matches[1]
-        $value = $matches[2] -replace '^"|"$'
-        Set-Item -Path "env:\$key" -Value $value
-    }
-}
-
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Failed to load environment variables from azd environment"
-    exit $LASTEXITCODE
-}
-
-
 Write-Host 'Creating python virtual environment "backend/backend_env"'
 $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
 if (-not $pythonCmd) {
@@ -28,14 +10,13 @@ Write-Host ""
 Write-Host "Restoring backend python packages"
 Write-Host ""
 
-Set-Location backend
-$venvPythonPath = "./backend_env/scripts/python.exe"
+$venvPythonPath = "./venv/scripts/python.exe"
 if (Test-Path -Path "/usr") {
   # fallback to Linux venv path
-  $venvPythonPath = "./backend_env/bin/python"
+  $venvPythonPath = "./venv/bin/python"
 }
 
-Start-Process -FilePath $venvPythonPath -ArgumentList "-m pip install -r requirements.txt" -Wait -NoNewWindow
+Start-Process -FilePath $venvPythonPath -ArgumentList "-m pip install -r app/backend/requirements.txt" -Wait -NoNewWindow
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Failed to restore backend python packages"
     exit $LASTEXITCODE

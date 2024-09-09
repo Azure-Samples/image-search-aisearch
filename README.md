@@ -72,7 +72,7 @@ Execute the following command, if you don't have any pre-existing Azure services
 You can only run locally **after** having successfully run the `azd up` command. If you haven't yet, follow the steps in [Azure deployment](#azure-deployment) above.
 
 1. Run `azd auth login`
-2. Change dir to `app` and run `./start.ps1`
+2. Change dir to `app` and run `./start.ps1` or `./start.sh` depending on your OS.
 3. Open a browser and navigate to `http://localhost:50505`
 
 ## Clean up
