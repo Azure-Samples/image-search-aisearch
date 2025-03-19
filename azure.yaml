@@ -6,10 +6,12 @@ services:
     project: ./customskill
     language: python
     host: function
-  frontend:
-    project: ./app/frontend
-    language: ts
-    host: appservice
+  aca:
+    project: ./app/backend
+    language: py
+    host: containerapp
+    docker:
+      remoteBuild: true
 hooks:
   prepackage:
     shell: pwsh

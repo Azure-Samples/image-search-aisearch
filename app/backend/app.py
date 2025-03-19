@@ -72,8 +72,8 @@ async def search():
 def setup_clients():
     AZURE_SEARCH_SERVICE = os.environ["AZURE_SEARCH_SERVICE"]
     AZURE_SEARCH_INDEX = os.environ["AZURE_SEARCH_INDEX"]
-    if os.getenv("WEBSITE_HOSTNAME"):
-        credential = ManagedIdentityCredential()
+    if os.getenv("RUNNING_IN_PRODUCTION"):
+        credential = ManagedIdentityCredential(client_id=os.environ["AZURE_CLIENT_ID"])
     else:
         credential = AzureDeveloperCliCredential(tenant_id=os.environ["AZURE_TENANT_ID"])
     search_client = SearchClient(
@@ -104,11 +104,11 @@ def create_app():
 
     # Level should be one of https://docs.python.org/3/library/logging.html#logging-levels
     default_level = "INFO"  # In development, log more verbosely
-    if os.getenv("WEBSITE_HOSTNAME"):  # In production, don't log as heavily
+    if os.getenv("RUNNING_IN_PRODUCTION"):  # In production, don't log as heavily
         default_level = "WARNING"
     logging.basicConfig(level=os.getenv("APP_LOG_LEVEL", default_level))
 
-    if not os.getenv("WEBSITE_HOSTNAME"):
+    if not os.getenv("RUNNING_IN_PRODUCTION"):
         load_azd_env()
         
     return app
