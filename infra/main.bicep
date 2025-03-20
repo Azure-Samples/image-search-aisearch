@@ -54,18 +54,13 @@ param apiServiceLocation string = '' // Set in main.parameters.json
 
 param apiServiceResourceGroupName string = '' // Set in main.parameters.json
 
-param frontendServiceName string = '' // Set in main.parameters.json
-
 param logAnalyticsName string = '' // Set in main.parameters.json
 
 param applicationInsightsName string = '' // Set in main.parameters.json
 
 param searchIndexName string = '' // Set in main.parameters.json
 
-param frontendAppServicePlanName string = '' // Set in main.parameters.json
-
-param frontendAppServicePlanSkuName string = '' // Set in main.parameters.json
-
+param acaExists bool = false // Set in main.parameters.json
 
 // Cannot use semantic search on free tier
 var actualSemanticSearchSkuName = searchServiceSkuName == 'free' ? 'disabled' : semanticSearchSkuName
@@ -123,7 +118,7 @@ module searchService 'core/search/search-services.bicep' = {
   }
 }
 
-// Create an App Service Plan for the backend
+// Create an App Service Plan for the function
 module appServicePlan './core/host/appserviceplan.bicep' = {
   name: 'appserviceplan'
   scope: apiServiceResourceGroup
@@ -132,8 +127,7 @@ module appServicePlan './core/host/appserviceplan.bicep' = {
     location: empty(apiServiceLocation) ? location : apiServiceLocation
     tags: tags
     sku: {
-      name: 'Y1'
-      tier: 'Dynamic'
+      name: 'B1'
     }
   }
 }
@@ -210,47 +204,54 @@ module functionApp 'core/host/functions.bicep' = {
   }
 }
 
-// Create an App Service Plan for the frontend
-module frontendAppServicePlan './core/host/appserviceplan.bicep' = {
-  name: 'frontendappserviceplan'
-  scope: apiServiceResourceGroup
+// Container apps host (including container registry)
+module containerApps 'core/host/container-apps.bicep' = {
+  name: 'container-apps'
+  scope: resourceGroup
   params: {
-    name: !empty(frontendAppServicePlanName) ? frontendAppServicePlanName : '${abbrs.webServerFarms}frontend-${resourceToken}'
-    location: empty(apiServiceLocation) ? location : apiServiceLocation
+    name: 'app'
+    location: location
     tags: tags
-    sku: {
-      name: frontendAppServicePlanSkuName
-    }
+    containerAppsEnvironmentName: '${resourceToken}-containerapps-env'
+    containerRegistryName: '${replace(resourceToken, '-', '')}registry'
+    logAnalyticsWorkspaceName: monitoring.outputs.logAnalyticsWorkspaceName
   }
 }
 
-// The application frontend
-module frontend 'core/host/appservice.bicep' = {
-  name: 'web'
-  scope: apiServiceResourceGroup
+// Container app frontend
+module aca 'aca.bicep' = {
+  name: 'aca'
+  scope: resourceGroup
   params: {
-    name: !empty(frontendServiceName) ? frontendServiceName : '${abbrs.webSitesAppService}frontend-${resourceToken}'
+    name: replace('ca-${take(resourceToken, 19)}', '--', '-')
     location: location
-    tags: union(tags, { 'azd-service-name': 'frontend' })
-    appServicePlanId: frontendAppServicePlan.outputs.id
-    runtimeName: 'python'
-    runtimeVersion: '3.11'
-    appCommandLine: 'python3 -m gunicorn main:app'
-    scmDoBuildDuringDeployment: true
-    managedIdentity: true
-    appSettings: {
-      AZURE_SEARCH_INDEX: searchIndexName
-      AZURE_SEARCH_SERVICE: searchService.outputs.name
-    }
+    tags: tags
+    identityName: '${resourceToken}-id-aca'
+    containerAppsEnvironmentName: containerApps.outputs.environmentName
+    containerRegistryName: containerApps.outputs.registryName
+    env: [
+      {name: 'AZURE_SEARCH_INDEX'
+        value: searchIndexName
+      }
+      {name: 'AZURE_SEARCH_SERVICE'
+        value: searchService.outputs.name
+      }
+      {
+        name: 'RUNNING_IN_PRODUCTION'
+        value: 'true'
+      }
+    ]
+    exists: acaExists
   }
 }
+
 
 // Frontend reader role to query index data:
 module frontendSearchReaderRole 'core/security/role.bicep' = {
   scope: searchServiceResourceGroup
   name: 'frontend-search-reader-role'
   params: {
-    principalId: frontend.outputs.identityPrincipalId
+    principalId: aca.outputs.identityPrincipalId
     roleDefinitionId: '1407120a-92aa-4202-b7e9-c0e197c71c8f'
     principalType: 'ServicePrincipal'
   }
@@ -291,3 +292,12 @@ output AZURE_COMPUTERVISION_ACCOUNT_URL string = computerVision.outputs.endpoint
 
 output AZURE_FUNCTION_URL string = functionApp.outputs.uri
 
+
+output SERVICE_ACA_IDENTITY_PRINCIPAL_ID string = aca.outputs.identityPrincipalId
+output SERVICE_ACA_NAME string = aca.outputs.name
+output SERVICE_ACA_URI string = aca.outputs.uri
+output SERVICE_ACA_IMAGE_NAME string = aca.outputs.imageName
+
+output AZURE_CONTAINER_ENVIRONMENT_NAME string = containerApps.outputs.environmentName
+output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerApps.outputs.registryLoginServer
+output AZURE_CONTAINER_REGISTRY_NAME string = containerApps.outputs.registryName

@@ -20,7 +20,7 @@ This project uses the sample nature data set from [Vision Studio](https://learn.
 Pricing varies per region and usage, so it isn't possible to predict exact costs for your usage.
 However, you can try the [Azure pricing calculator](https://azure.com/e/8ffbe5b1919c4c72aed89b022294df76) for the resources below.
 
-* Azure App Service: Basic Tier with 1 CPU core, 1.75 GB RAM. Pricing per hour. [Pricing](https://azure.microsoft.com/pricing/details/app-service/linux/)
+* Azure Container Apps: Consumption plan. Pricing per hour and per request. [Pricing](https://azure.microsoft.com/pricing/details/container-apps/)
 * Azure AI Search: Standard tier, 1 replica. Pricing per hour. [Pricing](https://azure.microsoft.com/pricing/details/search/)
 * Azure Blob Storage: Standard tier with ZRS (Zone-redundant storage). Pricing per storage and read operations. [Pricing](https://azure.microsoft.com/pricing/details/storage/blobs/)
 * Azure Monitor: Pay-as-you-go tier. Costs based on data ingested. [Pricing](https://azure.microsoft.com/pricing/details/monitor/)
