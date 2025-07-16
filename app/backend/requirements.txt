@@ -11,7 +11,7 @@ cffi==1.16.0
 charset-normalizer==3.3.2
 click==8.1.7
 colorama==0.4.6
-cryptography==44.0.1
+cryptography==43.0.3
 Flask==3.0.1
 h11==0.14.0
 h2==4.1.0
@@ -23,7 +23,7 @@ isodate==0.6.1
 itsdangerous==2.1.2
 Jinja2==3.1.6
 MarkupSafe==2.1.4
-msal==1.26.0
+msal==1.32.3
 msal-extensions==1.1.0
 packaging==23.2
 portalocker==2.8.2
