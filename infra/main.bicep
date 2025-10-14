@@ -248,14 +248,11 @@ output AZURE_STORAGE_ACCOUNT_LOCATION string = storage.outputs.location
 output AZURE_STORAGE_ACCOUNT_RESOURCE_GROUP string = storageResourceGroup.name
 output AZURE_STORAGE_ACCOUNT string = storage.outputs.name
 output AZURE_STORAGE_ACCOUNT_BLOB_URL string = storage.outputs.primaryBlobEndpoint
-output AZURE_APP_SERVICE_PLAN string = appServicePlan.outputs.name
 output AZURE_API_SERVICE_RESOURCE_GROUP string = apiServiceResourceGroup.name
 output AZURE_LOG_ANALYTICS string = monitoring.outputs.logAnalyticsWorkspaceName
 output AZURE_APPINSIGHTS string = monitoring.outputs.applicationInsightsName
 
 output AZURE_COMPUTERVISION_ACCOUNT_URL string = computerVision.outputs.endpoint
-
-
 
 output SERVICE_ACA_IDENTITY_PRINCIPAL_ID string = aca.outputs.identityPrincipalId
 output SERVICE_ACA_NAME string = aca.outputs.name
