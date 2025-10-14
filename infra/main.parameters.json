@@ -72,7 +72,7 @@
       "value": "${AZURE_COMPUTER_VISION_LOCATION}"
     },
     "computerVisionSkuName": {
-      "value": "${AZURE_COMPUTER_VISION_SKU_NAME=S1}"
+      "value": "${AZURE_COMPUTER_VISION_SKU_NAME=S0}"
     },
     "acaExists": {
       "value": "${SERVICE_ACA_RESOURCE_EXISTS=false}"

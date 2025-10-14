@@ -4,43 +4,48 @@ from dotenv import load_dotenv
 import os
 import logging
 
-from azure.core.pipeline.policies import HTTPPolicy
 from azure.identity import AzureDeveloperCliCredential
-from azure.mgmt.web import WebSiteManagementClient
 from azure.mgmt.storage import StorageManagementClient
 from azure.storage.blob import BlobServiceClient
 from azure.search.documents.indexes import SearchIndexClient, SearchIndexerClient
 from azure.search.documents.indexes.models import (
-    CustomVectorizerParameters,  
-    CustomVectorizer,
+    AIServicesVisionVectorizer,
+    AIServicesVisionParameters,
     SearchField,
+    AIServicesAccountIdentity,
     SearchFieldDataType,
-    HnswVectorSearchAlgorithmConfiguration,
-    VectorSearchAlgorithmKind,
+    HnswAlgorithmConfiguration,
     VectorSearch,
     VectorSearchProfile,
     SearchIndex,
     SearchIndexerDataSourceConnection,
     SearchIndexerDataContainer,
     SearchIndexer,
-    WebApiSkill,
+    VisionVectorizeSkill,
     InputFieldMappingEntry,
     OutputFieldMappingEntry,
-    FieldMapping,
-    FieldMappingFunction
+    SearchableField,
+    SimpleField,
+    LexicalAnalyzerName,
+    # Projection & indexing parameter related
+    SearchIndexerIndexProjection,
+    SearchIndexerIndexProjectionSelector,
+    SearchIndexerIndexProjectionsParameters,
+    IndexProjectionMode,
+    IndexingParameters,
+    IndexingParametersConfiguration,
+    BlobIndexerImageAction,
 )
-# Workaround to use the preview SDK
-from azure.search.documents.indexes._generated.models import (
-    SearchIndexerSkillset
-)
+# (Removed unused Input/OutputFieldMappingEntry imports; using raw field mappings only)
+# Some preview constructs (skillset) still require generated models import
+from azure.search.documents.indexes._generated.models import SearchIndexerSkillset
 
 logger = logging.getLogger(__name__)
 
-function_name = "GetImageEmbedding"
 sample_container_name = "image-embedding-sample-data"
 sample_datasource_name = "image-embedding-datasource"
-sample_skillset_name = "image-embedding-skillset"
 sample_indexer_name = "image-embedding-indexer"
+sample_skillset_name = "image-vision-vectorize-skillset"
 
 
 
@@ -50,24 +55,23 @@ def main():
     credential = AzureDeveloperCliCredential(tenant_id=os.environ["AZURE_TENANT_ID"])
     search_service_name = os.environ["AZURE_SEARCH_SERVICE"]
     search_index_name = os.environ["AZURE_SEARCH_INDEX"]
+    vision_endpoint = os.environ["AZURE_COMPUTERVISION_ACCOUNT_URL"]
+
     search_url = f"https://{search_service_name}.search.windows.net"
-    search_index_client = SearchIndexClient(endpoint=search_url, credential=credential, per_call_policies=[CustomVectorizerRewritePolicy()])
+    search_index_client = SearchIndexClient(endpoint=search_url, credential=credential)
     search_indexer_client = SearchIndexerClient(endpoint=search_url, credential=credential)
 
     print("Uploading sample data...")
     upload_sample_data(credential)
 
-    print("Getting function URL...")
-    function_url = get_function_url(credential)
-
     print(f"Create or update sample index {search_index_name}...")
-    create_or_update_sample_index(search_index_client, search_index_name, function_url)
+    create_or_update_sample_index(search_index_client, search_index_name, vision_endpoint)
 
     print(f"Create or update sample data source {sample_datasource_name}...")
     create_or_update_datasource(search_indexer_client, credential)
 
-    print(f"Create or update sample skillset {sample_skillset_name}")
-    create_or_update_skillset(search_indexer_client, function_url)
+    print(f"Create or update vision skillset {sample_skillset_name}...")
+    create_or_update_skillset(search_indexer_client, vision_endpoint)
 
     print(f"Create or update sample indexer {sample_indexer_name}")
     create_or_update_indexer(search_indexer_client, search_index_name)
@@ -86,18 +90,6 @@ def load_azd_env():
         raise Exception("No default azd env file found")
     logger.info(f"Loading azd env from {env_file_path}")
     load_dotenv(env_file_path, override=True)
-
-def get_function_url(credential) -> str:
-    subscription_id = os.environ["AZURE_SUBSCRIPTION_ID"]
-    client = WebSiteManagementClient(credential=credential, subscription_id=subscription_id)
-
-    resource_group = os.environ["AZURE_API_SERVICE_RESOURCE_GROUP"]
-    function_app_name = os.environ["AZURE_API_SERVICE"]
-    embedding_function = client.web_apps.get_function(resource_group_name=resource_group, name=function_app_name, function_name=function_name)
-    embedding_function_keys = client.web_apps.list_function_keys(resource_group_name=resource_group, name=function_app_name, function_name=function_name)
-    function_url_template = embedding_function.invoke_url_template
-    function_key = embedding_function_keys.additional_properties["default"]
-    return f"{function_url_template}?code={function_key}"
 
 def get_blob_connection_string(credential) -> str:
     subscription_id = os.environ["AZURE_SUBSCRIPTION_ID"]
@@ -125,37 +117,69 @@ def upload_sample_data(credential):
                 print(f"Uploading {filename}...")
                 blob_client.upload_blob(data=f)
 
-def create_or_update_sample_index(search_index_client: SearchIndexClient, search_index_name: str, custom_vectorizer_url: str):
-    # Create a search index  
-    # Image vectors have 1024 dimensions
-    fields = [  
-        SearchField(name="id", type=SearchFieldDataType.String, hidden=False, sortable=True, filterable=True, facetable=False, key=True),  
-        SearchField(name="url", type=SearchFieldDataType.String, hidden=False, sortable=False, filterable=False, facetable=False),  
-        SearchField(name="vector", type=SearchFieldDataType.Collection(SearchFieldDataType.Single), searchable=True, hidden=False, vector_search_dimensions=1024, vector_search_profile="hnswProfile"),  
-    ]  
-    
-    # Configure the vector search configuration  
-    vector_search = VectorSearch(  
-        algorithms=[  
-            HnswVectorSearchAlgorithmConfiguration(  
-                name="hnsw",
-                kind=VectorSearchAlgorithmKind.HNSW
+def create_or_update_sample_index(search_index_client: SearchIndexClient, search_index_name: str, vision_endpoint: str):
+    """Create or update the Azure AI Search index using built-in AI Vision vectorizer with projections.
+
+    This version mirrors the multimodal sample approach:
+      * Normalized image generation (via indexer parameters)
+      * VisionVectorizeSkill runs over /document/normalized_images/*
+      * Skill output 'vector' is projected/mapped to index field 'embedding'
+      * Parent (original blob) document is skipped; only projected image docs are indexed
+    """
+    fields = [
+        SearchableField(
+            name="id",
+            type=SearchFieldDataType.String,
+            key=True,
+            filterable=True,
+            analyzer_name=LexicalAnalyzerName.KEYWORD
+        ),
+        SearchableField(
+            name="document_id",
+            type=SearchFieldDataType.String,
+            key=False,
+            filterable=True,
+            analyzer_name=LexicalAnalyzerName.KEYWORD
+        ),
+        SearchField(
+            name="embedding",
+            type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
+            searchable=True,
+            stored=False,
+            vector_search_dimensions=1024,
+            vector_search_profile_name="images_search_profile"
+        ),
+        SimpleField(
+            name="metadata_storage_path",
+            type=SearchFieldDataType.String,
+            filterable=True
+        )
+    ]
+
+    # Configure vector search with built-in AI Vision vectorizer
+    vector_search = VectorSearch(
+        algorithms=[
+            HnswAlgorithmConfiguration(name="images_hnsw_config")
+        ],
+        profiles=[
+            VectorSearchProfile(
+                name="images_search_profile",
+                algorithm_configuration_name="images_hnsw_config",
+                vectorizer_name="images-vision-vectorizer",
             )
-        ],  
-        profiles=[  
-            VectorSearchProfile(  
-                name="hnswProfile",  
-                algorithm="hnsw",  
-                vectorizer="customVectorizer",  
+        ],
+        vectorizers=[
+            AIServicesVisionVectorizer(
+                vectorizer_name="images-vision-vectorizer",
+                ai_services_vision_parameters=AIServicesVisionParameters(
+                    resource_uri=vision_endpoint,
+                    model_version="2023-04-15",
+                ),
             )
-        ],  
-        vectorizers=[  
-            CustomVectorizer(name="customVectorizer", custom_vectorizer_parameters=CustomVectorizerParameters(uri=custom_vectorizer_url))
-        ],  
+        ],
     )
 
-    # Create the search index with the semantic settings  
-    index = SearchIndex(name=search_index_name, fields=fields, vector_search=vector_search)  
+    index = SearchIndex(name=search_index_name, fields=fields, vector_search=vector_search)
     search_index_client.create_or_update_index(index)
 
 def create_or_update_datasource(search_indexer_client: SearchIndexerClient, credential):
@@ -167,56 +191,69 @@ def create_or_update_datasource(search_indexer_client: SearchIndexerClient, cred
         container=SearchIndexerDataContainer(name=sample_container_name))
     search_indexer_client.create_or_update_data_source_connection(data_source)
 
-def create_or_update_skillset(search_indexer_client: SearchIndexerClient, custom_vectorizer_url: str):
-    embedding_skill = WebApiSkill(  
-        description="Skill to generate image embeddings via a custom endpoint",  
-        context="/document",
-        http_method="POST",
-        batch_size=10, # Controls how many images are sent to the custom skill at a time
-        uri=custom_vectorizer_url, 
-        inputs=[
-            InputFieldMappingEntry(name="imageUrl", source="/document/metadata_storage_path"),
-            InputFieldMappingEntry(name="sasToken", source="/document/metadata_storage_sas_token"),  
-        ],  
-        outputs=[  
-            OutputFieldMappingEntry(name="vector", target_name="vector")
-        ],
-    )
-    
-    skillset = SearchIndexerSkillset(  
-        name=sample_skillset_name,  
-        description="Skillset to generate embeddings for input images",  
-        skills=[embedding_skill]
-    )
-    search_indexer_client.create_or_update_skillset(skillset)
-
 def create_or_update_indexer(search_indexer_client: SearchIndexerClient, search_index_name: str):
-    indexer = SearchIndexer(  
-        name=sample_indexer_name,  
-        description="Indexer to index documents and generate embeddings",
+    # Enable normalized image generation so the skill can vectorize consistent sized inputs.
+    indexing_parameters = IndexingParameters(
+        configuration=IndexingParametersConfiguration(
+            image_action=BlobIndexerImageAction.GENERATE_NORMALIZED_IMAGES,
+            query_timeout=None
+        )
+    )
+    indexer = SearchIndexer(
+        name=sample_indexer_name,
+        description="Indexer to index normalized images and generate embeddings",
         skillset_name=sample_skillset_name,
         target_index_name=search_index_name,
         data_source_name=sample_datasource_name,
-        # Setup field mappings so the URL of the image is both the key and in a URL field
-        # https://learn.microsoft.com/azure/search/search-indexer-field-mappings?tabs=rest#example-make-a-base-encoded-field-searchable
-        field_mappings=[
-            FieldMapping(source_field_name="metadata_storage_path", target_field_name="url"),
-            FieldMapping(source_field_name="metadata_storage_path", target_field_name="id", mapping_function=FieldMappingFunction(name="base64Encode")),
-        ],
-        output_field_mappings=[
-            FieldMapping(source_field_name="/document/vector", target_field_name="vector")
-        ]
+        parameters=indexing_parameters,
+    )
+    search_indexer_client.create_or_update_indexer(indexer)
+    search_indexer_client.run_indexer(sample_indexer_name)
+
+def create_or_update_skillset(search_indexer_client: SearchIndexerClient, vision_endpoint: str):
+    """Create or update VisionVectorizeSkill with index projections.
+
+    Skill runs over each normalized image produced by the blob indexer. The projection selector maps the
+    skill output (vector) to the index field 'embedding' and copies down metadata_storage_path.
+    Parent documents are skipped (only normalized image docs indexed).
+    """
+    vision_skill = VisionVectorizeSkill(
+        name="visionvectorizer",
+        context="/document/normalized_images/*",
+        # Use 'image' input so the skill gets the actual generated normalized image content.
+        inputs=[InputFieldMappingEntry(name="image", source="/document/normalized_images/*")],
+        outputs=[OutputFieldMappingEntry(name="vector")],
+        model_version="2023-04-15",
     )
 
-    search_indexer_client.create_or_update_indexer(indexer)
+    projection = SearchIndexerIndexProjection(
+        selectors=[
+            SearchIndexerIndexProjectionSelector(
+                target_index_name=os.environ["AZURE_SEARCH_INDEX"],
+                parent_key_field_name="document_id",
+                source_context="/document/normalized_images/*",
+                # Map skill output vector to embedding field & copy metadata_storage_path
+                mappings=[
+                    InputFieldMappingEntry(name="embedding", source="/document/normalized_images/*/vector"),
+                    InputFieldMappingEntry(name="metadata_storage_path", source="/document/metadata_storage_path"),
+                ],
+            )
+        ],
+        parameters=SearchIndexerIndexProjectionsParameters(
+            projection_mode=IndexProjectionMode.SKIP_INDEXING_PARENT_DOCUMENTS
+        ),
+    )
 
-    search_indexer_client.run_indexer(sample_indexer_name)  
-
-# Workaround required to use the preview SDK
-class CustomVectorizerRewritePolicy(HTTPPolicy):
-    def send(self, request):
-        request.http_request.body = request.http_request.body.replace('customVectorizerParameters', 'customWebApiParameters')
-        return self.next.send(request)
+    skillset = SearchIndexerSkillset(
+        name=sample_skillset_name,
+        skills=[vision_skill],
+        index_projection=projection,
+        cognitive_services_account=AIServicesAccountIdentity(
+            subdomain_url=vision_endpoint,
+            description="AI Services Vision Vectorizer"
+        ),
+    )
+    search_indexer_client.create_or_update_skillset(skillset)
 
 if __name__ == "__main__":
     main()
