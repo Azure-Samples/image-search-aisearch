@@ -22,10 +22,6 @@ param searchServiceSkuName string // Set in main.parameters.json
 param computerVisionAccountName string = '' // Set in main.parameters.json
 
 @description('SKU for Computer Vision API')
-@allowed([
-  'F0'
-  'S1'
-])
 param computerVisionSkuName string // Set in main.parameters.json
 
 param computerVisionLocation string = '' // Set in main.parameters.json
@@ -47,8 +43,6 @@ param storageResourceGroupName string = '' // Set in main.parameters.json
 param storageAccountName string = '' // Set in main.parameters.json
 
 param appServicePlanName string = '' // Set in main.parameters.json
-
-param apiServiceName string = '' // Set in main.parameters.json
 
 param apiServiceLocation string = '' // Set in main.parameters.json
 
@@ -118,21 +112,7 @@ module searchService 'core/search/search-services.bicep' = {
   }
 }
 
-// Create an App Service Plan for the function
-module appServicePlan './core/host/appserviceplan.bicep' = {
-  name: 'appserviceplan'
-  scope: apiServiceResourceGroup
-  params: {
-    name: !empty(appServicePlanName) ? appServicePlanName : '${abbrs.webServerFarms}${resourceToken}'
-    location: empty(apiServiceLocation) ? location : apiServiceLocation
-    tags: tags
-    sku: {
-      name: 'B1'
-    }
-  }
-}
-
-// Backing storage for Azure functions backend API and sample data
+// Backing storage for sample data
 module storage './core/storage/storage-account.bicep' = {
   name: 'storage'
   scope: storageResourceGroup
@@ -172,35 +152,12 @@ module computerVision 'core/ai/cognitiveservices.bicep' = {
   name: 'computervision'
   scope: computerVisionResourceGroup
   params: {
-    name: !empty(computerVisionAccountName) ? computerVisionAccountName : '${abbrs.cognitiveServicesAccounts}${resourceToken}'
+    name: !empty(computerVisionAccountName) ? computerVisionAccountName : '${abbrs.cognitiveServicesAccounts}viz${resourceToken}'
     location: empty(computerVisionLocation) ? location : computerVisionLocation
-    kind: 'ComputerVision'
+    kind: 'CognitiveServices'
     sku: {
       name: computerVisionSkuName
     }
-  }
-}
-
-// The custom skill
-module functionApp 'core/host/functions.bicep' = {
-  name: 'function'
-  scope: apiServiceResourceGroup
-  params: {
-    name: !empty(apiServiceName) ? apiServiceName : '${abbrs.webSitesFunctions}api-${resourceToken}'
-    location: !empty(apiServiceLocation) ? apiServiceLocation : location
-    tags: union(tags, { 'azd-service-name': 'api' })
-    alwaysOn: false
-    appSettings: {
-      AzureWebJobsFeatureFlags: 'EnableWorkerIndexing'
-      COGNITIVE_SERVICES_ENDPOINT: computerVision.outputs.endpoint
-      // TODO: Setup keyvault. Outputting key into env var for ease of use is not ideal
-      COGNITIVE_SERVICES_API_KEY: computerVision.outputs.key
-    }
-    applicationInsightsName: monitoring.outputs.applicationInsightsName
-    appServicePlanId: appServicePlan.outputs.id
-    runtimeName: 'python'
-    runtimeVersion: '3.10'
-    storageAccountName: storage.outputs.name
   }
 }
 
@@ -268,6 +225,16 @@ module userSearchReaderRole 'core/security/role.bicep' = {
   }
 }
 
+module visionRoleSearchService 'core/security/role.bicep' = {
+  scope: resourceGroup
+  name: 'vision-role-searchservice'
+  params: {
+    principalId: searchService.outputs.principalId
+    roleDefinitionId: 'a97b65f3-24c7-4388-baec-2e87135dc908'
+    principalType: 'ServicePrincipal'
+  }
+}
+
 output AZURE_RESOURCE_GROUP string = resourceGroup.name
 output AZURE_TENANT_ID string = tenant().tenantId
 output AZURE_SEARCH_SERVICE string = searchService.outputs.name
@@ -281,17 +248,11 @@ output AZURE_STORAGE_ACCOUNT_LOCATION string = storage.outputs.location
 output AZURE_STORAGE_ACCOUNT_RESOURCE_GROUP string = storageResourceGroup.name
 output AZURE_STORAGE_ACCOUNT string = storage.outputs.name
 output AZURE_STORAGE_ACCOUNT_BLOB_URL string = storage.outputs.primaryBlobEndpoint
-output AZURE_APP_SERVICE_PLAN string = appServicePlan.outputs.name
-output AZURE_API_SERVICE string = functionApp.outputs.name
-output AZURE_API_SERVICE_LOCATION string = functionApp.outputs.location
 output AZURE_API_SERVICE_RESOURCE_GROUP string = apiServiceResourceGroup.name
 output AZURE_LOG_ANALYTICS string = monitoring.outputs.logAnalyticsWorkspaceName
 output AZURE_APPINSIGHTS string = monitoring.outputs.applicationInsightsName
 
 output AZURE_COMPUTERVISION_ACCOUNT_URL string = computerVision.outputs.endpoint
-
-output AZURE_FUNCTION_URL string = functionApp.outputs.uri
-
 
 output SERVICE_ACA_IDENTITY_PRINCIPAL_ID string = aca.outputs.identityPrincipalId
 output SERVICE_ACA_NAME string = aca.outputs.name

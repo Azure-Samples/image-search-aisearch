@@ -54,17 +54,17 @@ async def search():
         vector_queries=[
             VectorizableTextQuery(
                 k=size,
-                fields="vector",
+                fields="embedding",
                 text=search_text
             )
         ],
-        select="url"
+        select="metadata_storage_path"
     )
     response_results = []
     async for result in results:
         response_results.append({
             "score": result["@search.score"],
-            "url": result["url"]
+            "url": result["metadata_storage_path"]
         })
     return jsonify(response_results)
 
