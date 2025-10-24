@@ -6,6 +6,7 @@ Usage:
 Only one argument is accepted: the base URL of the deployed app.
 No environment variables or azd lookups are performed.
 """
+
 import sys
 
 from playwright.sync_api import Playwright, sync_playwright
@@ -40,7 +41,9 @@ def run_test(pw: Playwright, base_url: str) -> None:
 
 def main() -> int:
     if len(sys.argv) != 2:
-        print("Usage: python scripts/e2e_chat_playwright.py <base_url>", file=sys.stderr)
+        print(
+            "Usage: python scripts/e2e_chat_playwright.py <base_url>", file=sys.stderr
+        )
         return 1
     base_url = sys.argv[1]
     try:
