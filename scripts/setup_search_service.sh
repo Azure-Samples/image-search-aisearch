@@ -5,4 +5,4 @@ echo 'Installing dependencies from "requirements.txt" into virtual environment (
 .venv/bin/python -m pip --quiet --disable-pip-version-check install -r app/backend/requirements.txt
 
 echo 'Setting up search service...'
-./.venv/bin/python ./scripts/setup_search_service.py
+./.venv/bin/python ./app/backend/setup_search_service.py

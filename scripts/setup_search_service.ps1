@@ -17,4 +17,4 @@ Write-Host 'Installing dependencies from "requirements.txt" into virtual environ
 Start-Process -FilePath $venvPythonPath -ArgumentList "-m pip install -r app/backend/requirements.txt" -Wait -NoNewWindow
 
 Write-Host 'Setting up search service...'
-Start-Process -FilePath $venvPythonPath -ArgumentList "scripts/setup_search_service.py" -Wait -NoNewWindow
+Start-Process -FilePath $venvPythonPath -ArgumentList "app/backend/setup_search_service.py" -Wait -NoNewWindow
