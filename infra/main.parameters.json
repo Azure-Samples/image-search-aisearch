@@ -76,6 +76,9 @@
     },
     "acaExists": {
       "value": "${SERVICE_ACA_RESOURCE_EXISTS=false}"
+    },
+    "runningOnGh": {
+      "value": "${GITHUB_ACTIONS}"
     }
   }
 }
