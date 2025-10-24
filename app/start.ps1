@@ -1,5 +1,15 @@
 Set-Location ../
 
+# Function to get the venv python path based on OS and relative path
+function Get-VenvPythonPath {
+    param([string]$relativePath)
+    if ($IsLinux -or $IsMacOS) {
+        return "$relativePath/bin/python"
+    } else {
+        return "$relativePath/Scripts/python.exe"
+    }
+}
+
 Write-Host 'Creating python virtual environment ".venv"'
 $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
 if (-not $pythonCmd) {
@@ -12,11 +22,7 @@ Write-Host ""
 Write-Host "Restoring backend python packages"
 Write-Host ""
 
-$venvPythonPath = "./.venv/Scripts/python.exe"
-if (Test-Path -Path "/usr") {
-  # fallback to Linux venv path
-  $venvPythonPath = "./.venv/bin/python"
-}
+$venvPythonPath = Get-VenvPythonPath "./.venv"
 
 Start-Process -FilePath $venvPythonPath -ArgumentList "-m pip install -r app/backend/requirements.txt" -Wait -NoNewWindow
 if ($LASTEXITCODE -ne 0) {
@@ -49,11 +55,7 @@ Write-Host ""
 Set-Location ../backend
 
 # Update venv path for backend directory
-$venvPythonPath = "../../.venv/Scripts/python.exe"
-if (Test-Path -Path "/usr") {
-  # fallback to Linux venv path
-  $venvPythonPath = "../../.venv/bin/python"
-}
+$venvPythonPath = Get-VenvPythonPath "../../.venv"
 
 $port = 50505
 $hostname = "localhost"
