@@ -29,7 +29,7 @@ MarkupSafe==2.1.4
 msal==1.34.0
 msal-extensions==1.1.0
 packaging==23.2
-portalocker==2.8.2
+portalocker==3.2.0
 priority==2.0.0
 pycparser==2.21
 PyJWT==2.8.0
