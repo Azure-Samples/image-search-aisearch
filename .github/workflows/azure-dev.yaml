@@ -70,6 +70,12 @@ jobs:
         env:
           AZURE_ENV_NAME: ${{ vars.AZURE_ENV_NAME }}
 
+      - name: Prepackage Frontend
+        run: |
+          azd hooks run prepackage --no-prompt
+        env:
+          AZURE_ENV_NAME: ${{ vars.AZURE_ENV_NAME }}
+
       - name: Provision Infrastructure
         run: |
           azd provision --no-prompt
