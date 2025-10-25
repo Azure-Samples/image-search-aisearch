@@ -14,7 +14,7 @@ cffi==2.0.0
 charset-normalizer==3.3.2
 click==8.1.7
 colorama==0.4.6
-cryptography==44.0.1
+cryptography==46.0.3
 Flask==3.0.1
 h11==0.16.0
 h2==4.3.0
