@@ -41,20 +41,11 @@
     "storageAccountName": {
       "value": "${AZURE_STORAGE_ACCOUNT}"
     },
-    "appServicePlanName": {
-      "value": "${AZURE_APP_SERVICE_PLAN}"
-    },
-    "apiServiceName": {
-      "value": "${AZURE_API_SERVICE}"
-    },
     "apiServiceLocation": {
       "value": "${AZURE_API_SERVICE_LOCATION}"
     },
     "apiServiceResourceGroupName": {
       "value": "${AZURE_API_SERVICE_RESOURCE_GROUP}"
-    },
-    "frontendServiceName": {
-      "value": "${AZURE_FRONTEND_SERVICE_NAME}"
     },
     "logAnalyticsName": {
       "value": "${AZURE_LOG_ANALYTICS}"
@@ -72,10 +63,13 @@
       "value": "${AZURE_COMPUTER_VISION_LOCATION}"
     },
     "computerVisionSkuName": {
-      "value": "${AZURE_COMPUTER_VISION_SKU_NAME=S1}"
+      "value": "${AZURE_COMPUTER_VISION_SKU_NAME=S0}"
     },
     "acaExists": {
       "value": "${SERVICE_ACA_RESOURCE_EXISTS=false}"
+    },
+    "runningOnGh": {
+      "value": "${GITHUB_ACTIONS}"
     }
   }
 }

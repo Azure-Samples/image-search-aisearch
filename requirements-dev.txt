@@ -1,3 +1,5 @@
 -r app/backend/requirements.txt
--r scripts/requirements.txt
 ruff
+playwright
+pytest==8.3.4
+pytest-asyncio==0.25.2

@@ -2,10 +2,6 @@
 
 name: ai-chat-app-hack-vision
 services:
-  api:
-    project: ./customskill
-    language: python
-    host: function
   aca:
     project: ./app/backend
     language: py
@@ -18,14 +14,14 @@ hooks:
     run:  cd ./app/frontend;npm install;npm run build
     interactive: true
     continueOnError: false
-  postdeploy:
+  postprovision:
     windows:
       shell: pwsh
-      run: python ./scripts/setup_search_service.py
+      run: ./scripts/setup_search_service.ps1
       interactive: true
       continueOnError: false
     posix:
       shell: sh
-      run: python ./scripts/setup_search_service.py
+      run: ./scripts/setup_search_service.sh
       interactive: true
       continueOnError: false

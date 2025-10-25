@@ -28,17 +28,23 @@ bp = Blueprint("routes", __name__, static_folder="static")
 mimetypes.add_type("application/javascript", ".js")
 mimetypes.add_type("text/css", ".css")
 
+
 @bp.route("/")
 async def index():
     return await bp.send_static_file("index.html")
+
 
 @bp.route("/favicon.ico")
 async def favicon():
     return await bp.send_static_file("favicon.ico")
 
+
 @bp.route("/assets/<path:path>")
 async def assets(path):
-    return await send_from_directory(Path(__file__).resolve().parent / "static" / "assets", path)
+    return await send_from_directory(
+        Path(__file__).resolve().parent / "static" / "assets", path
+    )
+
 
 @bp.route("/search", methods=["POST"])
 async def search():
@@ -52,21 +58,17 @@ async def search():
         search_text=None,
         top=size,
         vector_queries=[
-            VectorizableTextQuery(
-                k=size,
-                fields="vector",
-                text=search_text
-            )
+            VectorizableTextQuery(k=size, fields="embedding", text=search_text)
         ],
-        select="url"
+        select="metadata_storage_path",
     )
     response_results = []
     async for result in results:
-        response_results.append({
-            "score": result["@search.score"],
-            "url": result["url"]
-        })
+        response_results.append(
+            {"score": result["@search.score"], "url": result["metadata_storage_path"]}
+        )
     return jsonify(response_results)
+
 
 @bp.before_app_serving
 def setup_clients():
@@ -75,17 +77,22 @@ def setup_clients():
     if os.getenv("RUNNING_IN_PRODUCTION"):
         credential = ManagedIdentityCredential(client_id=os.environ["AZURE_CLIENT_ID"])
     else:
-        credential = AzureDeveloperCliCredential(tenant_id=os.environ["AZURE_TENANT_ID"])
+        credential = AzureDeveloperCliCredential(
+            tenant_id=os.environ["AZURE_TENANT_ID"]
+        )
     search_client = SearchClient(
         endpoint=f"https://{AZURE_SEARCH_SERVICE}.search.windows.net",
         index_name=AZURE_SEARCH_INDEX,
-        credential=credential
+        credential=credential,
     )
     current_app.config[CONFIG_SEARCH_CLIENT] = search_client
 
+
 def load_azd_env():
     """Get path to current azd env file and load file using python-dotenv"""
-    result = subprocess.run("azd env list -o json", shell=True, capture_output=True, text=True)
+    result = subprocess.run(
+        "azd env list -o json", shell=True, capture_output=True, text=True
+    )
     if result.returncode != 0:
         raise Exception("Error loading azd env")
     env_json = json.loads(result.stdout)
@@ -97,6 +104,7 @@ def load_azd_env():
         raise Exception("No default azd env file found")
     logger.info(f"Loading azd env from {env_file_path}")
     load_dotenv(env_file_path, override=True)
+
 
 def create_app():
     app = Quart(__name__)
@@ -110,5 +118,5 @@ def create_app():
 
     if not os.getenv("RUNNING_IN_PRODUCTION"):
         load_azd_env()
-        
+
     return app
