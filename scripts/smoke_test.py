@@ -19,7 +19,7 @@ def wait_for_url(base_url: str, max_retries: int = 30, delay: int = 10) -> None:
     """Wait for the URL to be reachable with retries."""
     url = base_url.rstrip("/") + "/"
     print(f"Waiting for {url} to be reachable...")
-    
+
     for attempt in range(1, max_retries + 1):
         try:
             with urllib.request.urlopen(url, timeout=10) as response:
@@ -27,11 +27,15 @@ def wait_for_url(base_url: str, max_retries: int = 30, delay: int = 10) -> None:
                     print(f"Service is reachable (status: {response.status})")
                     return
         except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as e:
-            print(f"Attempt {attempt}/{max_retries}: Not ready yet ({e}), waiting {delay} seconds...")
+            print(
+                f"Attempt {attempt}/{max_retries}: Not ready yet ({e}), waiting {delay} seconds..."
+            )
             if attempt < max_retries:
                 time.sleep(delay)
-    
-    raise Exception(f"Service at {url} did not become reachable after {max_retries} attempts")
+
+    raise Exception(
+        f"Service at {url} did not become reachable after {max_retries} attempts"
+    )
 
 
 def run_test(pw: Playwright, base_url: str) -> None:
@@ -71,7 +75,7 @@ def main() -> int:
     try:
         # First wait for the URL to be reachable
         wait_for_url(base_url)
-        
+
         # Then run the UI test
         with sync_playwright() as pw:
             run_test(pw, base_url)
