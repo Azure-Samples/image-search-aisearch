@@ -36,6 +36,7 @@ from azure.search.documents.indexes.models import (
     IndexingParametersConfiguration,
     BlobIndexerImageAction,
 )
+
 # (Removed unused Input/OutputFieldMappingEntry imports; using raw field mappings only)
 # Some preview constructs (skillset) still require generated models import
 from azure.search.documents.indexes._generated.models import SearchIndexerSkillset
@@ -48,8 +49,6 @@ sample_indexer_name = "image-embedding-indexer"
 sample_skillset_name = "image-vision-vectorize-skillset"
 
 
-
-
 def main():
     load_azd_env()
     credential = AzureDeveloperCliCredential(tenant_id=os.environ["AZURE_TENANT_ID"])
@@ -59,13 +58,17 @@ def main():
 
     search_url = f"https://{search_service_name}.search.windows.net"
     search_index_client = SearchIndexClient(endpoint=search_url, credential=credential)
-    search_indexer_client = SearchIndexerClient(endpoint=search_url, credential=credential)
+    search_indexer_client = SearchIndexerClient(
+        endpoint=search_url, credential=credential
+    )
 
     print("Uploading sample data...")
     upload_sample_data(credential)
 
     print(f"Create or update sample index {search_index_name}...")
-    create_or_update_sample_index(search_index_client, search_index_name, vision_endpoint)
+    create_or_update_sample_index(
+        search_index_client, search_index_name, vision_endpoint
+    )
 
     print(f"Create or update sample data source {sample_datasource_name}...")
     create_or_update_datasource(search_indexer_client, credential)
@@ -76,9 +79,12 @@ def main():
     print(f"Create or update sample indexer {sample_indexer_name}")
     create_or_update_indexer(search_indexer_client, search_index_name)
 
+
 def load_azd_env():
     """Get path to current azd env file and load file using python-dotenv"""
-    result = subprocess.run("azd env list -o json", shell=True, capture_output=True, text=True)
+    result = subprocess.run(
+        "azd env list -o json", shell=True, capture_output=True, text=True
+    )
     if result.returncode != 0:
         raise Exception("Error loading azd env")
     env_json = json.loads(result.stdout)
@@ -91,22 +97,30 @@ def load_azd_env():
     logger.info(f"Loading azd env from {env_file_path}")
     load_dotenv(env_file_path, override=True)
 
+
 def get_blob_connection_string(credential) -> str:
     subscription_id = os.environ["AZURE_SUBSCRIPTION_ID"]
-    client = StorageManagementClient(credential=credential, subscription_id=subscription_id)
+    client = StorageManagementClient(
+        credential=credential, subscription_id=subscription_id
+    )
 
     resource_group = os.environ["AZURE_STORAGE_ACCOUNT_RESOURCE_GROUP"]
     storage_account_name = os.environ["AZURE_STORAGE_ACCOUNT"]
-    storage_account_keys = client.storage_accounts.list_keys(resource_group, storage_account_name)
+    storage_account_keys = client.storage_accounts.list_keys(
+        resource_group, storage_account_name
+    )
     return f"DefaultEndpointsProtocol=https;AccountName={storage_account_name};AccountKey={storage_account_keys.keys[0].value};EndpointSuffix=core.windows.net"
+
 
 def upload_sample_data(credential):
     # Connect to Blob Storage
     account_url = os.environ["AZURE_STORAGE_ACCOUNT_BLOB_URL"]
-    blob_service_client = BlobServiceClient(account_url=account_url, credential=credential)
+    blob_service_client = BlobServiceClient(
+        account_url=account_url, credential=credential
+    )
     container_client = blob_service_client.get_container_client(sample_container_name)
     if not container_client.exists():
-        container_client.create_container(public_access='blob')
+        container_client.create_container(public_access="blob")
 
     sample_data_directory_name = os.path.join("pictures", "nature")
     sample_data_directory = os.path.join(os.getcwd(), sample_data_directory_name)
@@ -117,7 +131,10 @@ def upload_sample_data(credential):
                 print(f"Uploading {filename}...")
                 blob_client.upload_blob(data=f)
 
-def create_or_update_sample_index(search_index_client: SearchIndexClient, search_index_name: str, vision_endpoint: str):
+
+def create_or_update_sample_index(
+    search_index_client: SearchIndexClient, search_index_name: str, vision_endpoint: str
+):
     """Create or update the Azure AI Search index using built-in AI Vision vectorizer with projections.
 
     This version mirrors the multimodal sample approach:
@@ -132,14 +149,14 @@ def create_or_update_sample_index(search_index_client: SearchIndexClient, search
             type=SearchFieldDataType.String,
             key=True,
             filterable=True,
-            analyzer_name=LexicalAnalyzerName.KEYWORD
+            analyzer_name=LexicalAnalyzerName.KEYWORD,
         ),
         SearchableField(
             name="document_id",
             type=SearchFieldDataType.String,
             key=False,
             filterable=True,
-            analyzer_name=LexicalAnalyzerName.KEYWORD
+            analyzer_name=LexicalAnalyzerName.KEYWORD,
         ),
         SearchField(
             name="embedding",
@@ -147,20 +164,18 @@ def create_or_update_sample_index(search_index_client: SearchIndexClient, search
             searchable=True,
             stored=False,
             vector_search_dimensions=1024,
-            vector_search_profile_name="images_search_profile"
+            vector_search_profile_name="images_search_profile",
         ),
         SimpleField(
             name="metadata_storage_path",
             type=SearchFieldDataType.String,
-            filterable=True
-        )
+            filterable=True,
+        ),
     ]
 
     # Configure vector search with built-in AI Vision vectorizer
     vector_search = VectorSearch(
-        algorithms=[
-            HnswAlgorithmConfiguration(name="images_hnsw_config")
-        ],
+        algorithms=[HnswAlgorithmConfiguration(name="images_hnsw_config")],
         profiles=[
             VectorSearchProfile(
                 name="images_search_profile",
@@ -179,8 +194,11 @@ def create_or_update_sample_index(search_index_client: SearchIndexClient, search
         ],
     )
 
-    index = SearchIndex(name=search_index_name, fields=fields, vector_search=vector_search)
+    index = SearchIndex(
+        name=search_index_name, fields=fields, vector_search=vector_search
+    )
     search_index_client.create_or_update_index(index)
+
 
 def create_or_update_datasource(search_indexer_client: SearchIndexerClient, credential):
     connection_string = get_blob_connection_string(credential)
@@ -188,15 +206,19 @@ def create_or_update_datasource(search_indexer_client: SearchIndexerClient, cred
         name=sample_datasource_name,
         type="azureblob",
         connection_string=connection_string,
-        container=SearchIndexerDataContainer(name=sample_container_name))
+        container=SearchIndexerDataContainer(name=sample_container_name),
+    )
     search_indexer_client.create_or_update_data_source_connection(data_source)
 
-def create_or_update_indexer(search_indexer_client: SearchIndexerClient, search_index_name: str):
+
+def create_or_update_indexer(
+    search_indexer_client: SearchIndexerClient, search_index_name: str
+):
     # Enable normalized image generation so the skill can vectorize consistent sized inputs.
     indexing_parameters = IndexingParameters(
         configuration=IndexingParametersConfiguration(
             image_action=BlobIndexerImageAction.GENERATE_NORMALIZED_IMAGES,
-            query_timeout=None
+            query_timeout=None,
         )
     )
     indexer = SearchIndexer(
@@ -210,7 +232,10 @@ def create_or_update_indexer(search_indexer_client: SearchIndexerClient, search_
     search_indexer_client.create_or_update_indexer(indexer)
     search_indexer_client.run_indexer(sample_indexer_name)
 
-def create_or_update_skillset(search_indexer_client: SearchIndexerClient, vision_endpoint: str):
+
+def create_or_update_skillset(
+    search_indexer_client: SearchIndexerClient, vision_endpoint: str
+):
     """Create or update VisionVectorizeSkill with index projections.
 
     Skill runs over each normalized image produced by the blob indexer. The projection selector maps the
@@ -221,7 +246,9 @@ def create_or_update_skillset(search_indexer_client: SearchIndexerClient, vision
         name="visionvectorizer",
         context="/document/normalized_images/*",
         # Use 'image' input so the skill gets the actual generated normalized image content.
-        inputs=[InputFieldMappingEntry(name="image", source="/document/normalized_images/*")],
+        inputs=[
+            InputFieldMappingEntry(name="image", source="/document/normalized_images/*")
+        ],
         outputs=[OutputFieldMappingEntry(name="vector")],
         model_version="2023-04-15",
     )
@@ -234,8 +261,13 @@ def create_or_update_skillset(search_indexer_client: SearchIndexerClient, vision
                 source_context="/document/normalized_images/*",
                 # Map skill output vector to embedding field & copy metadata_storage_path
                 mappings=[
-                    InputFieldMappingEntry(name="embedding", source="/document/normalized_images/*/vector"),
-                    InputFieldMappingEntry(name="metadata_storage_path", source="/document/metadata_storage_path"),
+                    InputFieldMappingEntry(
+                        name="embedding", source="/document/normalized_images/*/vector"
+                    ),
+                    InputFieldMappingEntry(
+                        name="metadata_storage_path",
+                        source="/document/metadata_storage_path",
+                    ),
                 ],
             )
         ],
@@ -249,11 +281,11 @@ def create_or_update_skillset(search_indexer_client: SearchIndexerClient, vision
         skills=[vision_skill],
         index_projection=projection,
         cognitive_services_account=AIServicesAccountIdentity(
-            subdomain_url=vision_endpoint,
-            description="AI Services Vision Vectorizer"
+            subdomain_url=vision_endpoint, description="AI Services Vision Vectorizer"
         ),
     )
     search_indexer_client.create_or_update_skillset(skillset)
+
 
 if __name__ == "__main__":
     main()

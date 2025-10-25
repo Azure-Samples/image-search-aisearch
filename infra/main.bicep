@@ -42,8 +42,6 @@ param storageResourceGroupName string = '' // Set in main.parameters.json
 
 param storageAccountName string = '' // Set in main.parameters.json
 
-param appServicePlanName string = '' // Set in main.parameters.json
-
 param apiServiceLocation string = '' // Set in main.parameters.json
 
 param apiServiceResourceGroupName string = '' // Set in main.parameters.json
@@ -55,6 +53,11 @@ param applicationInsightsName string = '' // Set in main.parameters.json
 param searchIndexName string = '' // Set in main.parameters.json
 
 param acaExists bool = false // Set in main.parameters.json
+
+@description('Whether the deployment is running on GitHub Actions')
+param runningOnGh string = ''
+
+var principalType = empty(runningOnGh) ? 'User' : 'ServicePrincipal'
 
 // Cannot use semantic search on free tier
 var actualSemanticSearchSkuName = searchServiceSkuName == 'free' ? 'disabled' : semanticSearchSkuName
@@ -131,7 +134,7 @@ module storageContribRoleUser 'core/security/role.bicep' = {
   params: {
     principalId: principalId
     roleDefinitionId: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
-    principalType: 'User'
+    principalType: principalType
   }
 }
 
@@ -221,7 +224,7 @@ module userSearchReaderRole 'core/security/role.bicep' = {
   params: {
     principalId: principalId
     roleDefinitionId: '1407120a-92aa-4202-b7e9-c0e197c71c8f'
-    principalType: 'User'
+    principalType: principalType
   }
 }
 
