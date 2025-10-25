@@ -6,10 +6,6 @@ on:
     # Run when commits are pushed to mainline branch
     branches:
       - main
-  pull_request:
-    # Run when a pull request is created targeting the mainline branch
-    branches:
-      - main
 
 # GitHub Actions workflow to deploy to Azure using azd
 # To configure required secrets for connecting to Azure, simply run `azd pipeline config`
