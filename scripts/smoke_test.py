@@ -8,8 +8,30 @@ No environment variables or azd lookups are performed.
 """
 
 import sys
+import time
+import urllib.request
+import urllib.error
 
 from playwright.sync_api import Playwright, sync_playwright
+
+
+def wait_for_url(base_url: str, max_retries: int = 30, delay: int = 10) -> None:
+    """Wait for the URL to be reachable with retries."""
+    url = base_url.rstrip("/") + "/"
+    print(f"Waiting for {url} to be reachable...")
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            with urllib.request.urlopen(url, timeout=10) as response:
+                if response.status == 200:
+                    print(f"Service is reachable (status: {response.status})")
+                    return
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as e:
+            print(f"Attempt {attempt}/{max_retries}: Not ready yet ({e}), waiting {delay} seconds...")
+            if attempt < max_retries:
+                time.sleep(delay)
+    
+    raise Exception(f"Service at {url} did not become reachable after {max_retries} attempts")
 
 
 def run_test(pw: Playwright, base_url: str) -> None:
@@ -47,6 +69,10 @@ def main() -> int:
         return 1
     base_url = sys.argv[1]
     try:
+        # First wait for the URL to be reachable
+        wait_for_url(base_url)
+        
+        # Then run the UI test
         with sync_playwright() as pw:
             run_test(pw, base_url)
         print("Playwright E2E test succeeded.")

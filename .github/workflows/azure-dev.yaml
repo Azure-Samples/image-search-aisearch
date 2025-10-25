@@ -92,14 +92,6 @@ jobs:
     needs: build
     steps:
 
-      - name: Basic smoke test (curl)
-        env:
-          URI: ${{needs.build.outputs.uri}}
-        run: |
-          echo "Sleeping 1 minute due to https://github.com/Azure/azure-dev/issues/2669"
-          sleep 60
-          curl -sSf $URI
-
       - name: Checkout
         uses: actions/checkout@v5
 
@@ -107,15 +99,15 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      
       - name: Install Playwright (Python) and Browsers
         run: |
           pip install --no-cache-dir playwright
           python -m playwright install --with-deps chromium
 
-      - name: End-to-End Chat UI Test (Playwright)
+      - name: End-to-End UI Test (Playwright)
         shell: bash
         env:
-          AZURE_ENV_NAME: ${{ vars.AZURE_ENV_NAME }}
           URI: ${{needs.build.outputs.uri}}
         run: |
-          python scripts/e2e_chat_playwright.py $URI
+          python scripts/smoke_test.py "$URI"
