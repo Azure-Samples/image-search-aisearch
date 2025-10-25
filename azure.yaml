@@ -17,11 +17,11 @@ hooks:
   postprovision:
     windows:
       shell: pwsh
-      run: python ./scripts/setup_search_service.py
+      run: ./scripts/setup_search_service.ps1
       interactive: true
       continueOnError: false
     posix:
       shell: sh
-      run: python ./scripts/setup_search_service.py
+      run: ./scripts/setup_search_service.sh
       interactive: true
       continueOnError: false
