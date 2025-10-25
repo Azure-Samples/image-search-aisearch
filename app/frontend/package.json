@@ -24,7 +24,7 @@
     "react-dom": "^18.2.0",
     "react-grid-gallery": "^1.0.1-alpha.0",
     "react-router-dom": "^6.18.0",
-    "react-syntax-highlighter": "^15.5.0",
+    "react-syntax-highlighter": "^16.0.0",
     "scheduler": "^0.20.2"
   },
   "devDependencies": {
