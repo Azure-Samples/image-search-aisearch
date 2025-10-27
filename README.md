@@ -1,3 +1,22 @@
+<!--
+---
+name: Semantic image search
+description: A sample full-stack app for searching images using Azure AI Vision multi-modal embeddings API and Azure AI Search integrated vectorization.
+languages:
+- python
+- typescript
+- bicep
+- azdeveloper
+products:
+- azure-cognitive-search
+- azure-computer-vision
+- azure-container-apps
+- azure
+page_type: sample
+urlFragment: image-search-aisearch
+---
+-->
+
 # Image search with Azure AI Search
 
 This project creates a simple image search application using Azure AI Search. The application allows you to search for images with a textual query, and searches using a multimodal embedding from the Azure AI Vision API. The frontend is built with TypeScript/React and the backend is built with Python/Quart.
