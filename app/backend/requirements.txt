@@ -1,12 +1,10 @@
 aiohttp==3.13.1
-azure-core==1.29.7
-azure-identity==1.16.1
-azure-mgmt-core==1.4.0
-azure-mgmt-storage==21.2.1
+azure-identity==1.25.1
+azure-mgmt-storage==24.0.0
 azure-search-documents==11.7.0b1
-azure-storage-blob==12.19.0
+azure-storage-blob==12.27.0
 Quart==0.20.0
 typing_extensions>=4.12.2
 gunicorn==23.0.0
 uvicorn==0.32.0
-python-dotenv==1.0.1
+python-dotenv==1.2.1
