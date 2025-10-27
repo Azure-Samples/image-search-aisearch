@@ -4,7 +4,7 @@ azure-identity==1.16.1
 azure-mgmt-core==1.4.0
 azure-mgmt-storage==21.2.1
 azure-search-documents==11.7.0b1
-azure-storage-blob==12.19.0
+azure-storage-blob==12.27.0
 Quart==0.20.0
 typing_extensions>=4.12.2
 gunicorn==23.0.0
