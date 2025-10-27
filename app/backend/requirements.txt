@@ -1,6 +1,6 @@
 aiohttp==3.12.14
 azure-identity==1.25.1
-azure-mgmt-storage==21.2.1
+azure-mgmt-storage==24.0.0
 azure-search-documents==11.7.0b1
 azure-storage-blob==12.19.0
 Quart==0.20.0
