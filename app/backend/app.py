@@ -58,7 +58,7 @@ async def search():
         search_text=None,
         top=size,
         vector_queries=[
-            VectorizableTextQuery(k=size, fields="embedding", text=search_text)
+            VectorizableTextQuery(k_nearest_neighbors=size, fields="embedding", text=search_text)
         ],
         select="metadata_storage_path",
     )

@@ -1,18 +1,44 @@
-import { useState } from "react";
-import { Gallery } from "react-grid-gallery";
-
-import styles from "./SearchResults.module.css";
+import { useState, useEffect } from "react";
+import { Gallery, Image } from "react-grid-gallery";
 
 interface Props {
     images: string[]
 }
 
 export const SearchResults = ({ images }: Props) => {
-    const galleryImages = images.map(val => ({
-        src: val,
-        width: 128,
-        height: 128
-    }))
+    const [galleryImages, setGalleryImages] = useState<Image[]>([]);
+
+    useEffect(() => {
+        const loadImageDimensions = async () => {
+            const loadedImages = await Promise.all(
+                images.map(src => 
+                    new Promise<Image>((resolve) => {
+                        const img = new window.Image();
+                        img.onload = () => {
+                            resolve({
+                                src,
+                                width: img.naturalWidth,
+                                height: img.naturalHeight
+                            });
+                        };
+                        img.onerror = () => {
+                            // Fallback for failed loads
+                            resolve({ src, width: 128, height: 128 });
+                        };
+                        img.src = src;
+                    })
+                )
+            );
+            setGalleryImages(loadedImages);
+        };
+
+        loadImageDimensions();
+    }, [images]);
+
+    if (galleryImages.length === 0 && images.length > 0) {
+        return <div>Loading images...</div>;
+    }
+
     return (
         <Gallery images={galleryImages} enableImageSelection={false} />
     );

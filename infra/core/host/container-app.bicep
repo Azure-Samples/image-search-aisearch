@@ -75,6 +75,15 @@ param serviceType string = ''
 @description('The target port for the container')
 param targetPort int = 80
 
+@description('Additional ports to expose (for MCP server, etc.)')
+param additionalPorts array = []
+
+// Build additional port mappings for ingress
+var additionalPortMappings = [for port in additionalPorts: {
+  external: port.external
+  targetPort: port.targetPort
+}]
+
 resource userIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' existing = if (!empty(identityName)) {
   name: identityName
 }
@@ -114,6 +123,7 @@ resource app 'Microsoft.App/containerApps@2023-05-02-preview' = {
         external: external
         targetPort: targetPort
         transport: 'auto'
+        additionalPortMappings: additionalPortMappings
         corsPolicy: {
           allowedOrigins: union([ 'https://portal.azure.com', 'https://ms.portal.azure.com' ], allowedOrigins)
         }

@@ -8,6 +8,13 @@ services:
     host: containerapp
     docker:
       remoteBuild: true
+  mcp:
+    project: ./app/backend
+    language: py
+    host: containerapp
+    docker:
+      path: ./Dockerfile.mcp
+      remoteBuild: true
 hooks:
   prepackage:
     shell: pwsh
