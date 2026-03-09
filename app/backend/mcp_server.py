@@ -53,7 +53,7 @@ _credential: AzureDeveloperCliCredential | ManagedIdentityCredential | None = No
 _loaded_azd_env = False
 
 IMAGE_VIEW_URI = "ui://image-search/image-viewer.html"
-DEFAULT_IMAGE_CONTAINER = "image-embedding-sample-data"
+IMAGE_CONTAINER_NAME = "image-embedding-sample-data"
 ALLOWED_IMAGE_MIME_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 _image_viewer_html_path = Path(__file__).with_name("image-viewer.html")
 
@@ -156,7 +156,7 @@ def get_blob_reference_from_url(url: str) -> tuple[str, str]:
 
     path_parts = normalized_path.split("/", maxsplit=1)
     if len(path_parts) == 1:
-        return DEFAULT_IMAGE_CONTAINER, path_parts[0]
+        return IMAGE_CONTAINER_NAME, path_parts[0]
     return path_parts[0], path_parts[1]
 
 
@@ -214,14 +214,14 @@ async def display_image_files(
     image_results: list[dict[str, str]] = []
     for filename in filenames:
         blob_client = blob_service_client.get_blob_client(
-            container=DEFAULT_IMAGE_CONTAINER, blob=filename
+            container=IMAGE_CONTAINER_NAME, blob=filename
         )
         try:
             stream = await blob_client.download_blob()
             image_bytes = await stream.readall()
         except ResourceNotFoundError as exc:
             raise ValueError(
-                f"Blob '{filename}' was not found in container '{DEFAULT_IMAGE_CONTAINER}'."
+                f"Blob '{filename}' was not found in container '{IMAGE_CONTAINER_NAME}'."
             ) from exc
 
         mime_type = get_image_mime_type(filename)
@@ -235,7 +235,6 @@ async def display_image_files(
         image_results.append(
             {
                 "filename": filename,
-                "container": DEFAULT_IMAGE_CONTAINER,
                 "mimeType": mime_type,
             }
         )
@@ -243,7 +242,6 @@ async def display_image_files(
     return ToolResult(
         content=image_blocks,
         structured_content={
-            "container": DEFAULT_IMAGE_CONTAINER,
             "images": image_results,
         },
     )
@@ -307,7 +305,6 @@ async def image_search(
                 {
                     "filename": blob_name,
                     "display_name": display_name,
-                    "container": container_name,
                     "description": description,
                 }
             )
