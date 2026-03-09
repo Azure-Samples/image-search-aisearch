@@ -6,7 +6,7 @@
         },
         "image-search-azure": {
             "type": "http",
-            "url": "https://ca-mcp-bghd6fzdtn5ce.bravemushroom-d89fed68.westcentralus.azurecontainerapps.io/mcp"
+            "url": "https://<your-mcp-container-app>/mcp"
         }
     }
 }

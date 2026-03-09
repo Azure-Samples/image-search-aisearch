@@ -92,6 +92,8 @@ You can only run locally **after** having successfully run the `azd up` command.
 2. Run `python app/backend/mcp_server.py`
 3. The server starts on `http://localhost:8001`. Add it to your MCP client configuration (e.g. VS Code or Claude Desktop) pointing at that URL.
 
+To connect to a deployed MCP server instead, update `.vscode/mcp.json` with your deployed Container App hostname and append `/mcp` (for example, using the `SERVICE_MCP_URI` output from `azd up`).
+
 ## Adding new images
 
 To add new images to the search index after the initial deployment:
