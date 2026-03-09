@@ -85,7 +85,9 @@ def main():
     create_or_update_datasource(search_indexer_client, credential)
 
     print(f"Create or update vision skillset {sample_skillset_name}...")
-    create_or_update_skillset(search_indexer_client, vision_endpoint, chat_completion_uri)
+    create_or_update_skillset(
+        search_indexer_client, vision_endpoint, chat_completion_uri
+    )
 
     print(f"Create or update sample indexer {sample_indexer_name}")
     create_or_update_indexer(search_indexer_client, search_index_name)
@@ -296,8 +298,12 @@ def create_or_update_skillset(
 
     # Add image verbalization skill if chat completion URI is provided
     if chat_completion_uri:
-        print("Chat completion URI provided; adding image verbalization skill to skillset")
-        logger.info("Chat completion URI provided; adding image verbalization skill to skillset")
+        print(
+            "Chat completion URI provided; adding image verbalization skill to skillset"
+        )
+        logger.info(
+            "Chat completion URI provided; adding image verbalization skill to skillset"
+        )
         verbalization_skill = ChatCompletionSkill(
             name="image-verbalization",
             description="GenAI Prompt skill for image verbalization",
@@ -317,12 +323,18 @@ def create_or_update_skillset(
                     source="/document/normalized_images/*/data",
                 ),
             ],
-            outputs=[OutputFieldMappingEntry(name="response", target_name="verbalizedImage")],
+            outputs=[
+                OutputFieldMappingEntry(name="response", target_name="verbalizedImage")
+            ],
         )
         skills.append(verbalization_skill)
     else:
-        print("AZURE_OPENAI_CHAT_COMPLETION_URI not set; skipping image verbalization skill")
-        logger.warning("AZURE_OPENAI_CHAT_COMPLETION_URI not set; skipping image verbalization skill")
+        print(
+            "AZURE_OPENAI_CHAT_COMPLETION_URI not set; skipping image verbalization skill"
+        )
+        logger.warning(
+            "AZURE_OPENAI_CHAT_COMPLETION_URI not set; skipping image verbalization skill"
+        )
 
     projection = SearchIndexerIndexProjection(
         selectors=[

@@ -37,7 +37,9 @@ def is_heif_file(path: Path) -> bool:
     return path.suffix.lower() in SUPPORTED_EXTENSIONS
 
 
-def build_output_path(source_path: Path, input_root: Path, output_dir: Path | None) -> Path:
+def build_output_path(
+    source_path: Path, input_root: Path, output_dir: Path | None
+) -> Path:
     """Build the destination JPEG path for a source HEIF image."""
     if output_dir is None:
         return source_path.with_suffix(".jpg")
@@ -70,10 +72,14 @@ def convert_heic_to_jpeg(
     output_path = build_output_path(source_path, input_root, output_dir)
 
     if output_path.exists() and not overwrite:
-        return ConversionResult(source_path=source_path, output_path=output_path, status="skipped")
+        return ConversionResult(
+            source_path=source_path, output_path=output_path, status="skipped"
+        )
 
     save_as_jpeg(source_path, output_path, quality)
-    return ConversionResult(source_path=source_path, output_path=output_path, status="converted")
+    return ConversionResult(
+        source_path=source_path, output_path=output_path, status="converted"
+    )
 
 
 def gather_source_files(input_path: Path) -> list[Path]:
@@ -83,7 +89,9 @@ def gather_source_files(input_path: Path) -> list[Path]:
             raise ValueError(f"Unsupported input file: {input_path}")
         return [input_path]
 
-    return sorted(path for path in input_path.rglob("*") if path.is_file() and is_heif_file(path))
+    return sorted(
+        path for path in input_path.rglob("*") if path.is_file() and is_heif_file(path)
+    )
 
 
 def parse_args() -> argparse.Namespace:

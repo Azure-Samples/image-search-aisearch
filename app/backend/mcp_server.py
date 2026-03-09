@@ -50,7 +50,9 @@ def load_image_viewer_html() -> str:
 
 def load_azd_env():
     """Get path to current azd env file and load file using python-dotenv"""
-    result = subprocess.run("azd env list -o json", shell=True, capture_output=True, text=True)
+    result = subprocess.run(
+        "azd env list -o json", shell=True, capture_output=True, text=True
+    )
     if result.returncode != 0:
         raise Exception("Error loading azd env")
     env_json = json.loads(result.stdout)
@@ -79,9 +81,13 @@ def get_credential() -> AzureDeveloperCliCredential | ManagedIdentityCredential:
     if _credential is None:
         ensure_env_loaded()
         if os.getenv("RUNNING_IN_PRODUCTION"):
-            _credential = ManagedIdentityCredential(client_id=os.environ["AZURE_CLIENT_ID"])
+            _credential = ManagedIdentityCredential(
+                client_id=os.environ["AZURE_CLIENT_ID"]
+            )
         else:
-            _credential = AzureDeveloperCliCredential(tenant_id=os.environ["AZURE_TENANT_ID"])
+            _credential = AzureDeveloperCliCredential(
+                tenant_id=os.environ["AZURE_TENANT_ID"]
+            )
     return _credential
 
 
@@ -111,7 +117,9 @@ def get_blob_service_client() -> BlobServiceClient:
         if not account_url:
             storage_account = os.environ["AZURE_STORAGE_ACCOUNT"]
             account_url = f"https://{storage_account}.blob.core.windows.net"
-        _blob_service_client = BlobServiceClient(account_url=account_url, credential=get_credential())
+        _blob_service_client = BlobServiceClient(
+            account_url=account_url, credential=get_credential()
+        )
     return _blob_service_client
 
 
@@ -140,7 +148,9 @@ def get_blob_reference_from_url(url: str) -> tuple[str, str]:
 def get_image_mime_type(filename: str) -> str:
     """Infer MIME type for supported image formats from blob filename."""
     image_format = get_image_format(filename)
-    mime_type = "image/jpeg" if image_format in {"jpg", "jpeg"} else f"image/{image_format}"
+    mime_type = (
+        "image/jpeg" if image_format in {"jpg", "jpeg"} else f"image/{image_format}"
+    )
     if mime_type in ALLOWED_IMAGE_MIME_TYPES:
         return mime_type
     return "image/jpeg"
@@ -162,7 +172,9 @@ def resize_image_bytes(data: bytes, image_format: str) -> bytes:
     with Image.open(io.BytesIO(data)) as img:
         img.thumbnail(THUMBNAIL_SIZE)
         out = io.BytesIO()
-        save_format = "JPEG" if image_format in {"jpg", "jpeg"} else image_format.upper()
+        save_format = (
+            "JPEG" if image_format in {"jpg", "jpeg"} else image_format.upper()
+        )
         img.save(out, format=save_format)
         return out.getvalue()
 
@@ -181,7 +193,9 @@ def image_view() -> str:
     annotations={"readOnlyHint": True},
 )
 async def display_image_files(
-    filenames: Annotated[list[str], "List of blob filenames to retrieve and display in a carousel."],
+    filenames: Annotated[
+        list[str], "List of blob filenames to retrieve and display in a carousel."
+    ],
     container_name: Annotated[str, "Blob container name"] = DEFAULT_IMAGE_CONTAINER,
 ) -> ToolResult:
     """Fetch images from blob storage by filename and render them in a carousel MCP App."""
@@ -193,7 +207,9 @@ async def display_image_files(
     image_blocks: list[types.ImageContent] = []
     image_results: list[dict[str, str]] = []
     for filename in filenames:
-        blob_client = blob_service_client.get_blob_client(container=container_name, blob=filename)
+        blob_client = blob_service_client.get_blob_client(
+            container=container_name, blob=filename
+        )
         try:
             image_bytes = blob_client.download_blob().readall()
         except ResourceNotFoundError as exc:
@@ -228,7 +244,9 @@ async def display_image_files(
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def image_search(
-    query: Annotated[str, "Text description of images to find (e.g., 'red dress', 'blue shirt')"],
+    query: Annotated[
+        str, "Text description of images to find (e.g., 'red dress', 'blue shirt')"
+    ],
     max_results: Annotated[int, "Maximum number of images to return (1-20)"] = 5,
 ) -> ToolResult:
     """
@@ -245,7 +263,11 @@ async def image_search(
     results = await search_client.search(
         search_text=query,
         top=max_results,
-        vector_queries=[VectorizableTextQuery(k_nearest_neighbors=max_results, fields="embedding", text=query)],
+        vector_queries=[
+            VectorizableTextQuery(
+                k_nearest_neighbors=max_results, fields="embedding", text=query
+            )
+        ],
         select="metadata_storage_path,verbalized_image",
     )
 
@@ -265,7 +287,9 @@ async def image_search(
                 display_name = f"image-{result_index}.{image_format}"
             file_basename = Path(display_name).stem
             thumbnail_bytes = resize_image_bytes(image_bytes, image_format)
-            files.append(File(data=thumbnail_bytes, format=image_format, name=file_basename))
+            files.append(
+                File(data=thumbnail_bytes, format=image_format, name=file_basename)
+            )
             image_results.append(
                 {
                     "filename": blob_name,
@@ -274,7 +298,9 @@ async def image_search(
                     "description": description,
                 }
             )
-            logger.info(f"Fetched image from {url} ({len(image_bytes)} bytes -> {len(thumbnail_bytes)} bytes thumbnail)")
+            logger.info(
+                f"Fetched image from {url} ({len(image_bytes)} bytes -> {len(thumbnail_bytes)} bytes thumbnail)"
+            )
         except Exception as e:
             logger.error(f"Failed to fetch image from {url}: {e}")
             continue
