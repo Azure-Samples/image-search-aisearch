@@ -8,7 +8,7 @@ RUN apk add --update --no-cache tini
 
 # Install required packages for cryptography package
 # https://cryptography.io/en/latest/installation/#building-cryptography-on-linux
-RUN apk add gcc musl-dev python3-dev libffi-dev openssl-dev cargo pkgconfig
+RUN apk add gcc musl-dev python3-dev libffi-dev openssl-dev cargo pkgconfig jpeg-dev zlib-dev libwebp-dev
 
 # ------------------- Stage 1: Build Stage ------------------------------
 FROM base AS build

@@ -9,26 +9,41 @@ from urllib.parse import unquote, urlparse
 
 import io
 
-import aiohttp
 from PIL import Image
 from mcp import types
 from azure.identity import AzureDeveloperCliCredential, ManagedIdentityCredential
 from azure.core.exceptions import ResourceNotFoundError
 from azure.search.documents.aio import SearchClient
 from azure.search.documents.models import VectorizableTextQuery
-from azure.storage.blob import BlobServiceClient
+from azure.storage.blob.aio import BlobServiceClient
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.server.apps import AppConfig, ResourceCSP
+from fastmcp.server.lifespan import lifespan
 from fastmcp.tools.tool import ToolResult
 from fastmcp.utilities.types import File
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.WARNING)
 logger.setLevel(logging.INFO)
+
+
+@lifespan
+async def app_lifespan(server):
+    """Close Azure SDK clients on server shutdown."""
+    try:
+        yield {}
+    finally:
+        if _search_client is not None:
+            await _search_client.close()
+        if _blob_service_client is not None:
+            await _blob_service_client.close()
+
+
 mcp = FastMCP(
     name="ImageSearchServer",
     instructions="Search for images using natural language queries. Returns matching images from an Azure AI Search index.",
+    lifespan=app_lifespan,
 )
 
 # Global search client (initialized on first use)
@@ -156,14 +171,6 @@ def get_image_mime_type(filename: str) -> str:
     return "image/jpeg"
 
 
-async def fetch_image_bytes(url: str) -> bytes:
-    """Fetch image bytes from a URL."""
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            response.raise_for_status()
-            return await response.read()
-
-
 THUMBNAIL_SIZE = (256, 256)
 
 
@@ -211,7 +218,8 @@ async def display_image_files(
             container=container_name, blob=filename
         )
         try:
-            image_bytes = blob_client.download_blob().readall()
+            stream = await blob_client.download_blob()
+            image_bytes = await stream.readall()
         except ResourceNotFoundError as exc:
             raise ValueError(
                 f"Blob '{filename}' was not found in container '{container_name}'."
@@ -271,6 +279,8 @@ async def image_search(
         select="metadata_storage_path,verbalized_image",
     )
 
+    blob_service_client = get_blob_service_client()
+
     files: list[File] = []
     image_results: list[dict[str, str]] = []
     result_index = 0
@@ -279,8 +289,12 @@ async def image_search(
         url = result["metadata_storage_path"]
         description = result.get("verbalized_image") or ""
         try:
-            image_bytes = await fetch_image_bytes(url)
             container_name, blob_name = get_blob_reference_from_url(url)
+            blob_client = blob_service_client.get_blob_client(
+                container=container_name, blob=blob_name
+            )
+            stream = await blob_client.download_blob()
+            image_bytes = await stream.readall()
             image_format = get_image_format(url)
             display_name = os.path.basename(blob_name)
             if not display_name:

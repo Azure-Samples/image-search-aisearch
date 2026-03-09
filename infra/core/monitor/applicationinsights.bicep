@@ -6,7 +6,7 @@ param logAnalyticsWorkspaceId string
 
 resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = {
   name: name
-  location: location
+  location: 'westus3'
   tags: tags
   kind: 'web'
   properties: {

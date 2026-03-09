@@ -9,6 +9,8 @@ export const SearchResults = ({ images }: Props) => {
     const [galleryImages, setGalleryImages] = useState<Image[]>([]);
 
     useEffect(() => {
+        let cancelled = false;
+
         const loadImageDimensions = async () => {
             const loadedImages = await Promise.all(
                 images.map(src => 
@@ -29,10 +31,14 @@ export const SearchResults = ({ images }: Props) => {
                     })
                 )
             );
-            setGalleryImages(loadedImages);
+            if (!cancelled) {
+                setGalleryImages(loadedImages);
+            }
         };
 
         loadImageDimensions();
+
+        return () => { cancelled = true; };
     }, [images]);
 
     if (galleryImages.length === 0 && images.length > 0) {

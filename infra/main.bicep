@@ -116,7 +116,7 @@ module searchService 'core/search/search-services.bicep' = {
   name: 'search-service'
   scope: searchServiceResourceGroup
   params: {
-    name: empty(searchServiceName) ? '${abbrs.searchSearchServices}2${resourceToken}' : searchServiceName
+    name: empty(searchServiceName) ? '${abbrs.searchSearchServices}${resourceToken}' : searchServiceName
     location: empty(searchServiceLocation) ? location : searchServiceLocation
     authOptions: {
       aadOrApiKey: {
@@ -274,6 +274,10 @@ module mcp 'aca-mcp.bicep' = {
         value: searchService.outputs.name
       }
       {
+        name: 'AZURE_STORAGE_ACCOUNT'
+        value: storage.outputs.name
+      }
+      {
         name: 'RUNNING_IN_PRODUCTION'
         value: 'true'
       }
@@ -301,6 +305,17 @@ module mcpSearchReaderRole 'core/security/role.bicep' = {
   params: {
     principalId: mcp.outputs.identityPrincipalId
     roleDefinitionId: '1407120a-92aa-4202-b7e9-c0e197c71c8f'
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// MCP server blob data reader role to download images:
+module mcpStorageBlobReaderRole 'core/security/role.bicep' = {
+  scope: storageResourceGroup
+  name: 'mcp-storage-blob-reader-role'
+  params: {
+    principalId: mcp.outputs.identityPrincipalId
+    roleDefinitionId: '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1' // Storage Blob Data Reader
     principalType: 'ServicePrincipal'
   }
 }
