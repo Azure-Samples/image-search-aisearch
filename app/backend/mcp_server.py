@@ -37,15 +37,15 @@ _blob_service_client: BlobServiceClient | None = None
 _credential: AzureDeveloperCliCredential | ManagedIdentityCredential | None = None
 _loaded_azd_env = False
 
-BLOB_IMAGE_VIEW_URI = "ui://image-search/blob-viewer.html"
+IMAGE_VIEW_URI = "ui://image-search/image-viewer.html"
 DEFAULT_IMAGE_CONTAINER = "image-embedding-sample-data"
 ALLOWED_IMAGE_MIME_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
-_blob_viewer_html_path = Path(__file__).with_name("blob-viewer.html")
+_image_viewer_html_path = Path(__file__).with_name("image-viewer.html")
 
 
-def load_blob_viewer_html() -> str:
+def load_image_viewer_html() -> str:
     """Load the MCP app HTML used to render blob images."""
-    return _blob_viewer_html_path.read_text(encoding="utf-8")
+    return _image_viewer_html_path.read_text(encoding="utf-8")
 
 
 def load_azd_env():
@@ -168,16 +168,16 @@ def resize_image_bytes(data: bytes, image_format: str) -> bytes:
 
 
 @mcp.resource(
-    BLOB_IMAGE_VIEW_URI,
+    IMAGE_VIEW_URI,
     app=AppConfig(csp=ResourceCSP(resource_domains=["https://unpkg.com"])),
 )
-def blob_image_view() -> str:
+def image_view() -> str:
     """Render images returned by display_image_files in an MCP App iframe."""
-    return load_blob_viewer_html()
+    return load_image_viewer_html()
 
 
 @mcp.tool(
-    app=AppConfig(resource_uri=BLOB_IMAGE_VIEW_URI),
+    app=AppConfig(resource_uri=IMAGE_VIEW_URI),
     annotations={"readOnlyHint": True},
 )
 async def display_image_files(
