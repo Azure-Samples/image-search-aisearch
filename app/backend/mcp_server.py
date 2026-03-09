@@ -203,7 +203,6 @@ async def display_image_files(
     filenames: Annotated[
         list[str], "List of blob filenames to retrieve and display in a carousel."
     ],
-    container_name: Annotated[str, "Blob container name"] = DEFAULT_IMAGE_CONTAINER,
 ) -> ToolResult:
     """Fetch images from blob storage by filename and render them in a carousel MCP App."""
     if len(filenames) < 1:
@@ -215,14 +214,14 @@ async def display_image_files(
     image_results: list[dict[str, str]] = []
     for filename in filenames:
         blob_client = blob_service_client.get_blob_client(
-            container=container_name, blob=filename
+            container=DEFAULT_IMAGE_CONTAINER, blob=filename
         )
         try:
             stream = await blob_client.download_blob()
             image_bytes = await stream.readall()
         except ResourceNotFoundError as exc:
             raise ValueError(
-                f"Blob '{filename}' was not found in container '{container_name}'."
+                f"Blob '{filename}' was not found in container '{DEFAULT_IMAGE_CONTAINER}'."
             ) from exc
 
         mime_type = get_image_mime_type(filename)
@@ -236,7 +235,7 @@ async def display_image_files(
         image_results.append(
             {
                 "filename": filename,
-                "container": container_name,
+                "container": DEFAULT_IMAGE_CONTAINER,
                 "mimeType": mime_type,
             }
         )
@@ -244,7 +243,7 @@ async def display_image_files(
     return ToolResult(
         content=image_blocks,
         structured_content={
-            "container": container_name,
+            "container": DEFAULT_IMAGE_CONTAINER,
             "images": image_results,
         },
     )

@@ -72,10 +72,10 @@
 </head>
 <body>
     <div id="carousel">
-        <button class="nav" id="prev">&#8249;</button>
+        <button class="nav" id="prev" type="button" aria-label="Previous image">&#8249;</button>
         <div id="frame"></div>
-        <button class="nav" id="next">&#8250;</button>
-        <span id="counter"></span>
+        <button class="nav" id="next" type="button" aria-label="Next image">&#8250;</button>
+        <span id="counter" aria-live="polite"></span>
     </div>
     <script type="module">
         import { App } from "https://unpkg.com/@modelcontextprotocol/ext-apps@0.4.0/app-with-deps";

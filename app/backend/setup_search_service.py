@@ -50,22 +50,13 @@ sample_indexer_name = "image-embedding-indexer"
 sample_skillset_name = "image-vision-vectorize-skillset"
 
 
-def get_optional_env(var_name: str) -> str | None:
-    """Return a stripped environment variable value, or None when missing/empty."""
-    value = os.environ.get(var_name)
-    if value is None:
-        return None
-    normalized = value.strip()
-    return normalized or None
-
-
 def main():
     load_azd_env()
     credential = AzureDeveloperCliCredential(tenant_id=os.environ["AZURE_TENANT_ID"])
     search_service_name = os.environ["AZURE_SEARCH_SERVICE"]
     search_index_name = os.environ["AZURE_SEARCH_INDEX"]
     vision_endpoint = os.environ["AZURE_COMPUTERVISION_ACCOUNT_URL"]
-    chat_completion_uri = get_optional_env("AZURE_OPENAI_CHAT_COMPLETION_URI")
+    chat_completion_uri = os.environ.get("AZURE_OPENAI_CHAT_COMPLETION_URI")
 
     search_url = f"https://{search_service_name}.search.windows.net"
     search_index_client = SearchIndexClient(endpoint=search_url, credential=credential)
@@ -135,7 +126,7 @@ def upload_sample_data(credential):
     if not container_client.exists():
         container_client.create_container(public_access="blob")
 
-    sample_data_directory_name = os.path.join("pictures", "clothes")
+    sample_data_directory_name = os.path.join("pictures", "nature")
     sample_data_directory = os.path.join(os.getcwd(), sample_data_directory_name)
     for filename in os.listdir(sample_data_directory):
         with open(os.path.join(sample_data_directory, filename), "rb") as f:
