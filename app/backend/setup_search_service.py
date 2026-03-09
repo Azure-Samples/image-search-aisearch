@@ -87,7 +87,7 @@ def main():
 def load_azd_env():
     """Get path to current azd env file and load file using python-dotenv"""
     result = subprocess.run(
-        "azd env list -o json", shell=True, capture_output=True, text=True
+        ["azd", "env", "list", "-o", "json"], capture_output=True, text=True
     )
     if result.returncode != 0:
         raise Exception("Error loading azd env")
@@ -342,11 +342,17 @@ def create_or_update_skillset(
                         name="metadata_storage_path",
                         source="/document/metadata_storage_path",
                     ),
-                    InputFieldMappingEntry(
-                        name="verbalized_image",
-                        source="/document/normalized_images/*/verbalizedImage",
-                    ),
-                ],
+                ]
+                + (
+                    [
+                        InputFieldMappingEntry(
+                            name="verbalized_image",
+                            source="/document/normalized_images/*/verbalizedImage",
+                        ),
+                    ]
+                    if chat_completion_uri
+                    else []
+                ),
             )
         ],
         parameters=SearchIndexerIndexProjectionsParameters(

@@ -66,7 +66,7 @@ def load_image_viewer_html() -> str:
 def load_azd_env():
     """Get path to current azd env file and load file using python-dotenv"""
     result = subprocess.run(
-        "azd env list -o json", shell=True, capture_output=True, text=True
+        ["azd", "env", "list", "-o", "json"], capture_output=True, text=True
     )
     if result.returncode != 0:
         raise Exception("Error loading azd env")
