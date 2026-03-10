@@ -54,7 +54,9 @@ def test_upload_sample_data_reads_only_top_level_pictures(
     (nested_dir / "image2.jpg").write_bytes(b"nested")
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AZURE_STORAGE_ACCOUNT_BLOB_URL", "https://example.blob.core.windows.net")
+    monkeypatch.setenv(
+        "AZURE_STORAGE_ACCOUNT_BLOB_URL", "https://example.blob.core.windows.net"
+    )
     monkeypatch.setattr(
         setup_search_service, "BlobServiceClient", FakeBlobServiceClient
     )
