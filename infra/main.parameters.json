@@ -68,6 +68,33 @@
     "acaExists": {
       "value": "${SERVICE_ACA_RESOURCE_EXISTS=false}"
     },
+    "mcpExists": {
+      "value": "${SERVICE_MCP_RESOURCE_EXISTS=false}"
+    },
+    "openAiServiceName": {
+      "value": "${AZURE_OPENAI_SERVICE}"
+    },
+    "openAiLocation": {
+      "value": "${AZURE_OPENAI_LOCATION}"
+    },
+    "openAiResourceGroupName": {
+      "value": "${AZURE_OPENAI_RESOURCE_GROUP}"
+    },
+    "openAiSkuName": {
+      "value": "${AZURE_OPENAI_SKU_NAME=S0}"
+    },
+    "chatCompletionModelName": {
+      "value": "${AZURE_OPENAI_CHAT_MODEL=gpt-4.1-mini}"
+    },
+    "chatCompletionDeploymentName": {
+      "value": "${AZURE_OPENAI_CHAT_DEPLOYMENT=gpt-4.1-mini}"
+    },
+    "chatCompletionModelVersion": {
+      "value": "${AZURE_OPENAI_CHAT_MODEL_VERSION=2025-04-14}"
+    },
+    "chatCompletionDeploymentCapacity": {
+      "value": "${AZURE_OPENAI_CHAT_DEPLOYMENT_CAPACITY=30}"
+    },
     "runningOnGh": {
       "value": "${GITHUB_ACTIONS}"
     }

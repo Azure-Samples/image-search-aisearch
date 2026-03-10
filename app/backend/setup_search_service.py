@@ -3,6 +3,7 @@ import json
 from dotenv import load_dotenv
 import os
 import logging
+from pathlib import Path
 
 from azure.identity import AzureDeveloperCliCredential
 from azure.mgmt.storage import StorageManagementClient
@@ -22,6 +23,7 @@ from azure.search.documents.indexes.models import (
     SearchIndexerDataContainer,
     SearchIndexer,
     VisionVectorizeSkill,
+    ChatCompletionSkill,
     InputFieldMappingEntry,
     OutputFieldMappingEntry,
     SearchableField,
@@ -55,6 +57,7 @@ def main():
     search_service_name = os.environ["AZURE_SEARCH_SERVICE"]
     search_index_name = os.environ["AZURE_SEARCH_INDEX"]
     vision_endpoint = os.environ["AZURE_COMPUTERVISION_ACCOUNT_URL"]
+    chat_completion_uri = os.environ.get("AZURE_OPENAI_CHAT_COMPLETION_URI")
 
     search_url = f"https://{search_service_name}.search.windows.net"
     search_index_client = SearchIndexClient(endpoint=search_url, credential=credential)
@@ -74,7 +77,9 @@ def main():
     create_or_update_datasource(search_indexer_client, credential)
 
     print(f"Create or update vision skillset {sample_skillset_name}...")
-    create_or_update_skillset(search_indexer_client, vision_endpoint)
+    create_or_update_skillset(
+        search_indexer_client, vision_endpoint, chat_completion_uri
+    )
 
     print(f"Create or update sample indexer {sample_indexer_name}")
     create_or_update_indexer(search_indexer_client, search_index_name)
@@ -83,7 +88,7 @@ def main():
 def load_azd_env():
     """Get path to current azd env file and load file using python-dotenv"""
     result = subprocess.run(
-        "azd env list -o json", shell=True, capture_output=True, text=True
+        ["azd", "env", "list", "-o", "json"], capture_output=True, text=True
     )
     if result.returncode != 0:
         raise Exception("Error loading azd env")
@@ -112,7 +117,7 @@ def get_blob_connection_string(credential) -> str:
     return f"DefaultEndpointsProtocol=https;AccountName={storage_account_name};AccountKey={storage_account_keys.keys[0].value};EndpointSuffix=core.windows.net"
 
 
-def upload_sample_data(credential):
+def upload_sample_data(credential) -> None:
     # Connect to Blob Storage
     account_url = os.environ["AZURE_STORAGE_ACCOUNT_BLOB_URL"]
     blob_service_client = BlobServiceClient(
@@ -122,13 +127,21 @@ def upload_sample_data(credential):
     if not container_client.exists():
         container_client.create_container(public_access="blob")
 
-    sample_data_directory_name = os.path.join("pictures", "nature")
-    sample_data_directory = os.path.join(os.getcwd(), sample_data_directory_name)
-    for filename in os.listdir(sample_data_directory):
-        with open(os.path.join(sample_data_directory, filename), "rb") as f:
-            blob_client = container_client.get_blob_client(filename)
+    sample_data_directory = Path.cwd() / "pictures"
+    if not sample_data_directory.is_dir():
+        raise FileNotFoundError(
+            f"Sample data directory not found: {sample_data_directory}"
+        )
+
+    for file_path in sorted(sample_data_directory.iterdir()):
+        if not file_path.is_file():
+            continue
+
+        blob_name = file_path.name
+        with file_path.open("rb") as f:
+            blob_client = container_client.get_blob_client(blob_name)
             if not blob_client.exists():
-                print(f"Uploading {filename}...")
+                print(f"Uploading {blob_name}...")
                 blob_client.upload_blob(data=f)
 
 
@@ -170,6 +183,11 @@ def create_or_update_sample_index(
             name="metadata_storage_path",
             type=SearchFieldDataType.String,
             filterable=True,
+        ),
+        SearchableField(
+            name="verbalized_image",
+            type=SearchFieldDataType.String,
+            searchable=True,
         ),
     ]
 
@@ -233,15 +251,39 @@ def create_or_update_indexer(
     search_indexer_client.run_indexer(sample_indexer_name)
 
 
+# Prompt for image verbalization skill
+IMAGE_VERBALIZATION_SYSTEM_PROMPT = """You are tasked with generating concise, accurate descriptions of images, figures, diagrams, or charts in documents. The goal is to capture the key information and meaning conveyed by the image without including extraneous details like style, colors, visual aesthetics, or size.
+
+Instructions:
+Content Focus: Describe the core content and relationships depicted in the image.
+
+For diagrams, specify the main elements and how they are connected or interact.
+For charts, highlight key data points, trends, comparisons, or conclusions.
+For figures or technical illustrations, identify the components and their significance.
+Clarity & Precision: Use concise language to ensure clarity and technical accuracy. Avoid subjective or interpretive statements.
+
+Avoid Visual Descriptors: Exclude details about:
+
+Colors, shading, and visual styles.
+Image size, layout, or decorative elements.
+Fonts, borders, and stylistic embellishments.
+Context: If relevant, relate the image to the broader content of the technical document or the topic it supports."""
+
+
 def create_or_update_skillset(
-    search_indexer_client: SearchIndexerClient, vision_endpoint: str
+    search_indexer_client: SearchIndexerClient,
+    vision_endpoint: str,
+    chat_completion_uri: str | None = None,
 ):
     """Create or update VisionVectorizeSkill with index projections.
 
     Skill runs over each normalized image produced by the blob indexer. The projection selector maps the
     skill output (vector) to the index field 'embedding' and copies down metadata_storage_path.
+    Optionally includes a ChatCompletionSkill for image verbalization if chat_completion_uri is provided.
     Parent documents are skipped (only normalized image docs indexed).
     """
+    skills = []
+
     vision_skill = VisionVectorizeSkill(
         name="visionvectorizer",
         context="/document/normalized_images/*",
@@ -252,6 +294,47 @@ def create_or_update_skillset(
         outputs=[OutputFieldMappingEntry(name="vector")],
         model_version="2023-04-15",
     )
+    skills.append(vision_skill)
+
+    # Add image verbalization skill if chat completion URI is provided
+    if chat_completion_uri:
+        print(
+            "Chat completion URI provided; adding image verbalization skill to skillset"
+        )
+        logger.info(
+            "Chat completion URI provided; adding image verbalization skill to skillset"
+        )
+        verbalization_skill = ChatCompletionSkill(
+            name="image-verbalization",
+            description="GenAI Prompt skill for image verbalization",
+            context="/document/normalized_images/*",
+            uri=chat_completion_uri,
+            inputs=[
+                InputFieldMappingEntry(
+                    name="systemMessage",
+                    source=f"='{IMAGE_VERBALIZATION_SYSTEM_PROMPT}'",
+                ),
+                InputFieldMappingEntry(
+                    name="userMessage",
+                    source="='Please describe this image.'",
+                ),
+                InputFieldMappingEntry(
+                    name="image",
+                    source="/document/normalized_images/*/data",
+                ),
+            ],
+            outputs=[
+                OutputFieldMappingEntry(name="response", target_name="verbalizedImage")
+            ],
+        )
+        skills.append(verbalization_skill)
+    else:
+        print(
+            "AZURE_OPENAI_CHAT_COMPLETION_URI not set; skipping image verbalization skill"
+        )
+        logger.warning(
+            "AZURE_OPENAI_CHAT_COMPLETION_URI not set; skipping image verbalization skill"
+        )
 
     projection = SearchIndexerIndexProjection(
         selectors=[
@@ -268,7 +351,17 @@ def create_or_update_skillset(
                         name="metadata_storage_path",
                         source="/document/metadata_storage_path",
                     ),
-                ],
+                ]
+                + (
+                    [
+                        InputFieldMappingEntry(
+                            name="verbalized_image",
+                            source="/document/normalized_images/*/verbalizedImage",
+                        ),
+                    ]
+                    if chat_completion_uri
+                    else []
+                ),
             )
         ],
         parameters=SearchIndexerIndexProjectionsParameters(
@@ -278,7 +371,7 @@ def create_or_update_skillset(
 
     skillset = SearchIndexerSkillset(
         name=sample_skillset_name,
-        skills=[vision_skill],
+        skills=skills,
         index_projection=projection,
         cognitive_services_account=AIServicesAccountIdentity(
             subdomain_url=vision_endpoint, description="AI Services Vision Vectorizer"

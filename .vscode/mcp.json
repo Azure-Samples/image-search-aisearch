@@ -1,0 +1,12 @@
+{
+    "servers": {
+        "image-search-local": {
+            "type": "http",
+            "url": "http://localhost:8001/mcp"
+        },
+        "image-search-azure": {
+            "type": "http",
+            "url": "https://<your-mcp-container-app>/mcp"
+        }
+    }
+}

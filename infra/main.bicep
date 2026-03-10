@@ -54,6 +54,18 @@ param searchIndexName string = '' // Set in main.parameters.json
 
 param acaExists bool = false // Set in main.parameters.json
 
+param mcpExists bool = false // Set in main.parameters.json
+
+// Azure OpenAI parameters
+param openAiServiceName string = '' // Set in main.parameters.json
+param openAiLocation string = '' // Set in main.parameters.json
+param openAiSkuName string = 'S0' // Set in main.parameters.json
+param openAiResourceGroupName string = '' // Set in main.parameters.json
+param chatCompletionModelName string = 'gpt-4.1-mini' // Set in main.parameters.json
+param chatCompletionDeploymentName string = 'gpt-4.1-mini' // Set in main.parameters.json
+param chatCompletionModelVersion string = '2025-04-14' // Set in main.parameters.json
+param chatCompletionDeploymentCapacity int = 30 // Set in main.parameters.json
+
 @description('Whether the deployment is running on GitHub Actions')
 param runningOnGh string = ''
 
@@ -94,6 +106,10 @@ resource storageResourceGroup 'Microsoft.Resources/resourceGroups@2022-09-01' ex
 
 resource computerVisionResourceGroup 'Microsoft.Resources/resourceGroups@2022-09-01' existing = if (!empty(computerVisionResourceGroupName)) {
   name: !empty(computerVisionResourceGroupName) ? computerVisionResourceGroupName : resourceGroup.name
+}
+
+resource openAiResourceGroup 'Microsoft.Resources/resourceGroups@2022-09-01' existing = if (!empty(openAiResourceGroupName)) {
+  name: !empty(openAiResourceGroupName) ? openAiResourceGroupName : resourceGroup.name
 }
 
 module searchService 'core/search/search-services.bicep' = {
@@ -164,6 +180,40 @@ module computerVision 'core/ai/cognitiveservices.bicep' = {
   }
 }
 
+// Azure OpenAI for chat completion (image verbalization)
+module openAi 'br/public:avm/res/cognitive-services/account:0.7.2' = {
+  name: 'openai'
+  scope: openAiResourceGroup
+  params: {
+    name: !empty(openAiServiceName) ? openAiServiceName : '${abbrs.cognitiveServicesAccounts}openai${resourceToken}'
+    location: empty(openAiLocation) ? location : openAiLocation
+    tags: tags
+    kind: 'OpenAI'
+    customSubDomainName: !empty(openAiServiceName)
+      ? openAiServiceName
+      : '${abbrs.cognitiveServicesAccounts}openai${resourceToken}'
+    publicNetworkAccess: 'Enabled'
+    networkAcls: {
+      defaultAction: 'Allow'
+    }
+    sku: openAiSkuName
+    deployments: [
+      {
+        name: chatCompletionDeploymentName
+        model: {
+          format: 'OpenAI'
+          name: chatCompletionModelName
+          version: chatCompletionModelVersion
+        }
+        sku: {
+          name: 'Standard'
+          capacity: chatCompletionDeploymentCapacity
+        }
+      }
+    ]
+  }
+}
+
 // Container apps host (including container registry)
 module containerApps 'core/host/container-apps.bicep' = {
   name: 'container-apps'
@@ -205,6 +255,37 @@ module aca 'aca.bicep' = {
   }
 }
 
+// Container app for MCP server
+module mcp 'aca-mcp.bicep' = {
+  name: 'mcp'
+  scope: resourceGroup
+  params: {
+    name: replace('ca-mcp-${take(resourceToken, 15)}', '--', '-')
+    location: location
+    tags: tags
+    identityName: '${resourceToken}-id-mcp'
+    containerAppsEnvironmentName: containerApps.outputs.environmentName
+    containerRegistryName: containerApps.outputs.registryName
+    env: [
+      {name: 'AZURE_SEARCH_INDEX'
+        value: searchIndexName
+      }
+      {name: 'AZURE_SEARCH_SERVICE'
+        value: searchService.outputs.name
+      }
+      {
+        name: 'AZURE_STORAGE_ACCOUNT'
+        value: storage.outputs.name
+      }
+      {
+        name: 'RUNNING_IN_PRODUCTION'
+        value: 'true'
+      }
+    ]
+    exists: mcpExists
+  }
+}
+
 
 // Frontend reader role to query index data:
 module frontendSearchReaderRole 'core/security/role.bicep' = {
@@ -213,6 +294,28 @@ module frontendSearchReaderRole 'core/security/role.bicep' = {
   params: {
     principalId: aca.outputs.identityPrincipalId
     roleDefinitionId: '1407120a-92aa-4202-b7e9-c0e197c71c8f'
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// MCP server reader role to query index data:
+module mcpSearchReaderRole 'core/security/role.bicep' = {
+  scope: searchServiceResourceGroup
+  name: 'mcp-search-reader-role'
+  params: {
+    principalId: mcp.outputs.identityPrincipalId
+    roleDefinitionId: '1407120a-92aa-4202-b7e9-c0e197c71c8f'
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// MCP server blob data reader role to download images:
+module mcpStorageBlobReaderRole 'core/security/role.bicep' = {
+  scope: storageResourceGroup
+  name: 'mcp-storage-blob-reader-role'
+  params: {
+    principalId: mcp.outputs.identityPrincipalId
+    roleDefinitionId: '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1' // Storage Blob Data Reader
     principalType: 'ServicePrincipal'
   }
 }
@@ -229,11 +332,22 @@ module userSearchReaderRole 'core/security/role.bicep' = {
 }
 
 module visionRoleSearchService 'core/security/role.bicep' = {
-  scope: resourceGroup
+  scope: computerVisionResourceGroup
   name: 'vision-role-searchservice'
   params: {
     principalId: searchService.outputs.principalId
     roleDefinitionId: 'a97b65f3-24c7-4388-baec-2e87135dc908'
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Cognitive Services OpenAI User role for search service to call chat completion
+module openAiRoleSearchService 'core/security/role.bicep' = {
+  scope: openAiResourceGroup
+  name: 'openai-role-searchservice'
+  params: {
+    principalId: searchService.outputs.principalId
+    roleDefinitionId: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd' // Cognitive Services OpenAI User
     principalType: 'ServicePrincipal'
   }
 }
@@ -257,10 +371,17 @@ output AZURE_APPINSIGHTS string = monitoring.outputs.applicationInsightsName
 
 output AZURE_COMPUTERVISION_ACCOUNT_URL string = computerVision.outputs.endpoint
 
+output AZURE_OPENAI_CHAT_COMPLETION_URI string = '${openAi.outputs.endpoint}openai/deployments/${chatCompletionDeploymentName}/chat/completions?api-version=2024-02-01'
+
 output SERVICE_ACA_IDENTITY_PRINCIPAL_ID string = aca.outputs.identityPrincipalId
 output SERVICE_ACA_NAME string = aca.outputs.name
 output SERVICE_ACA_URI string = aca.outputs.uri
 output SERVICE_ACA_IMAGE_NAME string = aca.outputs.imageName
+
+output SERVICE_MCP_IDENTITY_PRINCIPAL_ID string = mcp.outputs.identityPrincipalId
+output SERVICE_MCP_NAME string = mcp.outputs.name
+output SERVICE_MCP_URI string = mcp.outputs.uri
+output SERVICE_MCP_IMAGE_NAME string = mcp.outputs.imageName
 
 output AZURE_CONTAINER_ENVIRONMENT_NAME string = containerApps.outputs.environmentName
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerApps.outputs.registryLoginServer
