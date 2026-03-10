@@ -3,6 +3,7 @@ import json
 from dotenv import load_dotenv
 import os
 import logging
+from pathlib import Path
 
 from azure.identity import AzureDeveloperCliCredential
 from azure.mgmt.storage import StorageManagementClient
@@ -116,7 +117,7 @@ def get_blob_connection_string(credential) -> str:
     return f"DefaultEndpointsProtocol=https;AccountName={storage_account_name};AccountKey={storage_account_keys.keys[0].value};EndpointSuffix=core.windows.net"
 
 
-def upload_sample_data(credential):
+def upload_sample_data(credential) -> None:
     # Connect to Blob Storage
     account_url = os.environ["AZURE_STORAGE_ACCOUNT_BLOB_URL"]
     blob_service_client = BlobServiceClient(
@@ -126,13 +127,21 @@ def upload_sample_data(credential):
     if not container_client.exists():
         container_client.create_container(public_access="blob")
 
-    sample_data_directory_name = os.path.join("pictures", "nature")
-    sample_data_directory = os.path.join(os.getcwd(), sample_data_directory_name)
-    for filename in os.listdir(sample_data_directory):
-        with open(os.path.join(sample_data_directory, filename), "rb") as f:
-            blob_client = container_client.get_blob_client(filename)
+    sample_data_directory = Path.cwd() / "pictures"
+    if not sample_data_directory.is_dir():
+        raise FileNotFoundError(
+            f"Sample data directory not found: {sample_data_directory}"
+        )
+
+    for file_path in sorted(sample_data_directory.iterdir()):
+        if not file_path.is_file():
+            continue
+
+        blob_name = file_path.name
+        with file_path.open("rb") as f:
+            blob_client = container_client.get_blob_client(blob_name)
             if not blob_client.exists():
-                print(f"Uploading {filename}...")
+                print(f"Uploading {blob_name}...")
                 blob_client.upload_blob(data=f)
 
 

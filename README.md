@@ -58,7 +58,7 @@ Then bring down the project code:
 
 Execute the following command, if you don't have any pre-existing Azure services and want to start from a fresh deployment.
 
-1. Run `azd up` - This will provision Azure resources and deploy this sample to those resources, including building the search index based on the files found in the `./data` folder.
+1. Run `azd up` - This will provision Azure resources and deploy this sample to those resources, including building the search index based on the files found under `pictures/`.
     * **Important**: Beware that the resources created by this command will incur immediate costs, primarily from the AI Search resource. These resources may accrue costs even if you interrupt the command before it is fully executed. You can run `azd down` or delete the resources manually to avoid unnecessary spending.
 1. After the application has been successfully deployed you will see a URL printed to the console.  Click that URL to interact with the application in your browser.
 
@@ -66,7 +66,7 @@ Execute the following command, if you don't have any pre-existing Azure services
 
 When `setup_search_service.py` runs (automatically during `azd up`, or manually), it sets up an Azure AI Search indexing pipeline:
 
-1. **Blob upload** – Images from the `pictures/` folder are uploaded to an Azure Blob Storage container.
+1. **Blob upload** – Images from the `pictures/` folder are uploaded to an Azure Blob Storage container. Only files placed directly under `pictures/` are uploaded.
 2. **Data source** – A Search data source is configured to point at that blob container.
 3. **Skillset** – Two skills are applied to each image:
    - [`VisionVectorizeSkill`](https://learn.microsoft.com/azure/search/cognitive-search-skill-vision-vectorize) generates a 1024-dimensional multimodal embedding using Azure AI Vision.
@@ -98,14 +98,14 @@ To connect to a deployed MCP server instead, update `.vscode/mcp.json` with your
 
 To add new images to the search index after the initial deployment:
 
-1. Place new JPEG image files under `pictures/` folder. Convert to JPEG first if needed.
+1. Place new JPEG image files directly under the `pictures/` folder. Convert to JPEG first if needed.
 2. Run the setup script inside the Python environment to upload and re-index:
 
    ```bash
    python ./app/backend/setup_search_service.py
    ```
 
-   The script skips blobs that already exist, so only new files will be uploaded. The indexer will then vectorize and index the new images.
+  The script skips blobs that already exist, so only new files will be uploaded. The indexer will then vectorize and index the new images.
 
 ## Clean up
 

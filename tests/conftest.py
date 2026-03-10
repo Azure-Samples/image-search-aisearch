@@ -29,11 +29,11 @@ class MockAsyncSearchResultsIterator:
         self.data = [
             [
                 {
-                    "metadata_storage_path": "https://test.blob.core.windows.net/pictures/nature/image1.jpg",
+                    "metadata_storage_path": "https://test.blob.core.windows.net/pictures/image1.jpg",
                     "@search.score": 0.95,
                 },
                 {
-                    "metadata_storage_path": "https://test.blob.core.windows.net/pictures/nature/image2.jpg",
+                    "metadata_storage_path": "https://test.blob.core.windows.net/pictures/image2.jpg",
                     "@search.score": 0.85,
                 },
             ]
