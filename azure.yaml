@@ -1,6 +1,8 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
 
 name: ai-chat-app-hack-vision
+metadata:
+  telemetry: image-search-aisearch
 services:
   aca:
     project: ./app/backend
