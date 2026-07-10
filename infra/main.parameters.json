@@ -93,7 +93,7 @@
       "value": "${AZURE_OPENAI_CHAT_MODEL_VERSION=2025-04-14}"
     },
     "chatCompletionDeploymentCapacity": {
-      "value": "${AZURE_OPENAI_CHAT_DEPLOYMENT_CAPACITY=30}"
+      "value": "${AZURE_OPENAI_CHAT_DEPLOYMENT_CAPACITY=100}"
     },
     "runningOnGh": {
       "value": "${GITHUB_ACTIONS}"

@@ -1,0 +1,231 @@
+
+<p>The <a target="_blank" href="https://modelcontextprotocol.io/">Model Context Protocol (MCP)</a> is becoming a richer foundation for agent experiences. Beyond calling tools and exchanging text, MCP servers can return <a target="_blank" href="https://modelcontextprotocol.io/specification/2025-11-25/server/tools#image-content">binary results</a> and provide <a target="_blank" href="https://modelcontextprotocol.io/extensions/apps/overview">interactive apps</a> in clients that support those features, including <a target="_blank" href="https://code.visualstudio.com/docs/agent-customization/mcp-servers">VS Code</a>.</p>
+
+<p>In this post, I'll use both capabilities to build an MCP server that searches a collection of nature photos with natural language, lets the model inspect the matching images, and presents selected results in an interactive gallery. The same approach can be adapted to product catalogs, digital asset managers, photo archives, and other multimedia libraries.</p>
+
+<br>
+<h2>Searching the image library</h2>
+
+<p>Let's start by seeing how the server works from a user's perspective.</p>
+
+<p>After <a target="_blank" href="https://code.visualstudio.com/docs/agent-customization/mcp-servers">connecting VS Code</a> to the deployed MCP server, I can ask a question in GitHub Copilot about the images:</p>
+
+<p style="background-color:#efefef; padding: 8px; font-style:italic">Find landscape photos that show dramatic terrain and water. Show me the strongest options for a nature gallery.</p>
+
+<p>The GitHub Copilot agent realizes that it can use the image search MCP server to answer that question, and it calls the <code>image_search</code> tool with these arguments:</p>
+
+<pre class="language-python"><code>{
+  "query": "dramatic natural landscapes with mountains and water",
+  "max_results": 5
+}
+</code></pre>
+
+<p>The tool call returns a mix of binary files and structured data: a thumbnail for each matching image, plus JSON containing its filename, display name, and generated description. The thumbnails let a multimodal model inspect the actual pixels, while the structured content gives the agent compact metadata it can reference in later tool calls.</p>
+
+<pre class="language-javascript"><code>{
+  "results": [
+    {
+      "filename": "Picture1.jpg",
+      "display_name": "Picture1.jpg",
+      "description": "A clear mountain lake surrounded by pine forest and steep rocky peaks. Warm sunlight enters through a gap in the mountains and reflects in the still water among large foreground rocks."
+    },...
+</code></pre>
+
+<p>In the GitHub Copilot chat interface, each thumbnail is attached to the tool result. I can click a result to inspect it directly in VS Code, much like a file in the workspace, while the agent can compare the images and their descriptions. Here's what it looks like:</p>
+
+<img src="screenshot_copilot_search.png" alt="Screenshot of GitHub Copilot searching the MCP server">
+
+<p>Now let's dive into the code powering that tool call. I built the server using <a target="_blank" href="https://gofastmcp.com/">FastMCP</a>, the most popular Python package for writing MCP servers. I declare my tools by wrapping functions in <code>mcp.tool()</code> decorator and annotating the arguments with types and helpful descriptions. The FastMCP library sends this function signature as JSON-schema, and that's how GitHub Copilot decides when and how to call <code>image_search</code>:</p>
+
+<pre class="language-python"><code>@mcp.tool()
+async def image_search(
+  query: Annotated[
+    str, "Text description of images to find (e.g., 'sunlit mountain lake')"
+  ],
+  max_results: Annotated[int, "Max number of images to return (1-20)"] = 5,
+) -> ToolResult:
+  """
+  Search for images matching a natural language query.
+  Returns the image data and descriptions.
+  """
+
+<p>Inside the function, I use <a target="_blank" href="https://learn.microsoft.com/azure/search/search-what-is-azure-search">Azure AI Search</a> with hybrid retrieval on both the text query and the query's vector embedding, against a target index that has multimodal embeddings for the images plus LLM-generated descriptions for the images. The tool returns a result that contains both the binary files and the structured content.
+</p>
+  
+<pre class="language-python"><code>  results = await search_client.search(
+    search_text=query,
+    top=max_results,
+    vector_queries=[VectorizableTextQuery(
+        k_nearest_neighbors=max_results, fields="embedding", text=query)],
+    select="metadata_storage_path,verbalized_image")
+
+  blob_service_client = get_blob_service_client()
+
+  files: list[File] = []
+  image_results: list[dict[str, str]] = []
+  result_index = 0
+  async for result in results:
+    result_index += 1
+    url = result["metadata_storage_path"]
+    description = result.get("verbalized_image")
+    container_name, blob_name = get_blob_reference_from_url(url)
+    blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+    stream = await blob_client.download_blob()
+    image_bytes = await stream.readall()
+    image_format = get_image_format(url)
+    display_name = os.path.basename(blob_name)
+    file_basename = Path(display_name).stem
+    thumbnail_bytes = resize_image_bytes(image_bytes, image_format)
+    files.append(File(data=thumbnail_bytes, format=image_format, name=file_basename))
+    image_results.append({
+      "filename": blob_name,
+      "display_name": display_name,
+      "description": description})
+
+  return ToolResult(
+    content=files,
+    structured_content={
+      "query": query,
+      "results": image_results})
+</code></pre>
+
+<br>
+<h2>Displaying selected images</h2>
+
+<p>Once the agent finds possible matches, it can reason over the results and select the strongest ones. When the agent is using a multimodal LLM, it can consider both the image content <em>and</em> the generated descriptions. It can then render its choices directly in the conversation using an <a target="_blank" href="https://modelcontextprotocol.io/extensions/apps/overview">MCP app</a>: an iframed webpage that renders inside the MCP client. In this case, our app displays a small, JavaScript-powered carousel to navigate easily through the images:</p>
+
+<img src="screenshot_copilot_app.png" alt="Screenshot of GitHub Copilot searching the MCP server">
+
+<p>Let's check out the code that powers that MCP carousel app. An app is associated with a tool, so we once again wrap a Python function in <code>@mcp.tool</code>. This time, we pass an <code>AppConfig</code> that points to the image viewer's HTML resource.</p>
+
+<pre class="language-python"><code>@mcp.tool(
+  app=AppConfig(resource_uri=IMAGE_VIEW_URI)
+)
+async def display_image_files(
+  filenames: Annotated[list[str], "List of image filenames to retrieve"]
+) -> ToolResult:
+  """Fetch images by filename and render them in a carousel display."""
+</code></pre>
+
+<p>Inside the function, we fetch the selected images from Azure Blob Storage by filename, then return both the binary image data and structured content containing each filename and MIME type.</p>
+  
+<pre class="language-python"><code>. blob_service_client = get_blob_service_client()
+
+  image_blocks: list[types.ImageContent] = []
+  image_results: list[dict[str, str]] = []
+  for filename in filenames:
+    blob_client = blob_service_client.get_blob_client(container=IMAGE_CONTAINER_NAME, blob=filename)
+    stream = await blob_client.download_blob()
+    image_bytes = await stream.readall()
+    mime_type = get_image_mime_type(filename)
+    image_blocks.append(
+      types.ImageContent(
+        type="image",
+        data=base64.b64encode(image_bytes).decode("utf-8"),
+        mimeType=mime_type))
+    image_results.append({
+      "filename": filename,
+      "mimeType": mime_type})
+
+  return ToolResult(
+    content=image_blocks,
+    structured_content={
+      "images": image_results,
+  })
+</code></pre>
+
+<p>Next, we define the resource that serves the image viewer HTML page. We wrap a Python function in <code>@mcp.resource</code>, assign it a <code>ui://</code> URL that is unique to our MCP server, and declare which servers are allowed by its Content Security Policy (CSP):</p>
+
+<pre class="language-python"><code>@mcp.resource(
+    IMAGE_VIEW_URI,
+    app=AppConfig(csp=ResourceCSP(resource_domains=["https://unpkg.com"])),
+)
+def image_view() -> str:
+    """Render images returned by display_image_files as an MCP App."""
+    return load_image_viewer_html()
+</code></pre>
+
+<br>
+<p>Finally, we need the HTML that renders inside the app's iframe. This small page imports <a target="_blank" href="https://github.com/modelcontextprotocol/ext-apps">ext-apps</a>, a JavaScript package that manages bidirectional communication with the MCP client. The JavaScript creates an <code>App</code> instance, defines the <code>ontoolresult</code> callback, and connects the app. That callback receives images from the tool result and renders them in the carousel. MCP apps can also send messages back to the host, although this read-only viewer does not need to.</p>
+
+
+<pre class="language-html"><code>&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;body&gt;
+  &lt;div id=&quot;carousel&quot;&gt;
+    &lt;button id=&quot;prev&quot; type=&quot;button&quot; aria-label=&quot;Previous&quot;&gt;&amp;#8249;&lt;/button&gt;
+    &lt;div id=&quot;frame&quot;&gt;&lt;/div&gt;
+    &lt;button id=&quot;next&quot; type=&quot;button&quot; aria-label=&quot;Next&quot;&gt;&amp;#8250;&lt;/button&gt;
+    &lt;span id=&quot;counter&quot; aria-live=&quot;polite&quot;&gt;&lt;/span&gt;
+  &lt;/div&gt;
+  &lt;script type=&quot;module&quot;&gt;
+    import { App } from &quot;https://unpkg.com/@modelcontextprotocol/ext-apps@0.4.0/app-with-deps&quot;;
+
+    const app = new App({ name: &quot;Image Viewer&quot;, version: &quot;1.0.0&quot; });
+
+    let images = [];
+    let index = 0;
+
+    const frame = document.getElementById(&quot;frame&quot;);
+    const prevBtn = document.getElementById(&quot;prev&quot;);
+    const nextBtn = document.getElementById(&quot;next&quot;);
+    const counter = document.getElementById(&quot;counter&quot;);
+
+    function show(i) {
+      index = i;
+      const img = images[index];
+      frame.innerHTML = &quot;&quot;;
+      const el = document.createElement(&quot;img&quot;);
+      el.src = `data:${img.mimeType || &quot;image/jpeg&quot;};base64,${img.data}`;
+      el.alt = &quot;Blob image&quot;;
+      frame.appendChild(el);
+      prevBtn.disabled = index === 0;
+      nextBtn.disabled = index === images.length - 1;
+      counter.textContent = images.length &gt; 1 ? `${index + 1} / ${images.length}` : &quot;&quot;;
+    }
+
+    prevBtn.addEventListener(&quot;click&quot;, () =&gt; { if (index &gt; 0) show(index - 1); });
+    nextBtn.addEventListener(&quot;click&quot;, () =&gt; { if (index &lt; images.length - 1) show(index + 1); });
+
+    app.ontoolresult = ({ content }) =&gt; {
+      images = (content || []).filter((block) =&gt; block.type === &quot;image&quot;);
+      if (images.length &gt; 0) show(0);
+    };
+
+    await app.connect();
+  &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+
+<br>
+
+<h2>Refining the final gallery</h2>
+
+<p>The useful part of putting media tools behind MCP is that discovery becomes conversational. I can refine the visual direction without translating every request into filters or filenames. For example, after seeing the first results, I might ask:</p>
+
+<p style="background-color:#efefef; padding: 8px; font-style:italic">Add some contrast: find one icy scene and one warm desert scene that still feel visually cohesive.</p>
+
+<p>The agent can search again with more focused queries, compare the new results with the earlier mountain image, and keep track of the filenames it wants to use. I can then finish with:</p>
+
+<p style="background-color:#efefef; padding: 8px; font-style:italic">Great. Show me the final three-image gallery in the order you recommend.</p>
+  
+<p>To render the final set, the agent calls <code>display_image_files</code> with <em>only</em> the selected filenames, in the requested order. The MCP app receives the full-resolution image data and lets me navigate through the gallery with arrow buttons. Search and presentation remain separate tools: search can return small thumbnails to conserve tokens, while the viewer fetches full images only after the agent has narrowed the collection.</p>
+
+
+<h2>Try it yourself!</h2>
+
+<p>The full MCP server code is available in <a target="_blank" href="https://github.com/Azure-Samples/image-search-aisearch">Azure-Samples/image-search-aisearch</a>, along with a minimal image-search frontend and an Azure AI Search indexing pipeline. The indexer uses an Azure OpenAI model to describe each image and Azure AI Vision to create multimodal embeddings. The repository includes a sample nature dataset, but you can replace it with any image collection.</p>
+
+<p>This example focuses on images, but the architecture generalizes to other media. A video index can combine poster frames, scene descriptions, and transcripts; an audio index can combine waveform metadata, tags, and transcripts. The MCP search tool returns compact previews and identifiers, and a media-specific MCP app handles playback or high-resolution display.</p>
+
+<p>Here are ways you could improve it:</p>
+<ul>
+  <li><strong>Support more media types:</strong> add transcript search and a video or audio player app, while keeping the same search-then-display tool pattern.</li>
+  <li><strong>Enrich the metadata:</strong> index dates, locations, creators, accessibility text, or domain-specific tags alongside generated descriptions and embeddings.</li>
+  <li><strong>Optimize token consumption:</strong> images require many tokens, so returning too many thumbnails can quickly consume the model's context window. Experiment with smaller previews, higher compression, metadata-only search results, or a two-stage retrieval flow.</li>
+  <li><strong>Add authentication:</strong> many media libraries contain private or licensed assets. You can add key-based authentication or OAuth with the FastMCP auth providers, as I described in the <a target="_blank" href="https://github.com/orgs/microsoft-foundry/discussions/246">MCP auth livestream</a>.</li>
+</ul>
+
+<p>Once search results can carry both structured metadata and real media, an agent can do more than locate files: it can compare, curate, and present them in the same conversation. I hope you'll try the sample with a multimedia collection of your own!</p>
+

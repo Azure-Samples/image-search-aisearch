@@ -3,7 +3,7 @@ import logging
 import os
 import subprocess
 import base64
-from typing import Annotated
+from typing import Annotated, cast
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -171,6 +171,12 @@ def get_image_mime_type(filename: str) -> str:
     return "image/jpeg"
 
 
+def get_image_title(filename: str) -> str:
+    """Create a readable image title from a blob filename."""
+    stem = Path(unquote(filename)).stem
+    return " ".join(stem.replace("_", " ").replace("-", " ").split()).title()
+
+
 THUMBNAIL_SIZE = (256, 256)
 
 
@@ -203,28 +209,37 @@ async def display_image_files(
     filenames: Annotated[
         list[str], "List of blob filenames to retrieve and display in a carousel."
     ],
+    descriptions: Annotated[
+        list[str] | None,
+        "Optional image descriptions from image_search, in the same order as filenames.",
+    ] = None,
 ) -> ToolResult:
-    """Fetch images from blob storage by filename and render them in a carousel MCP App."""
+    """Render images with readable titles, descriptions, and file details."""
     if len(filenames) < 1:
         raise ValueError("Provide at least one filename.")
+    if descriptions is not None and len(descriptions) != len(filenames):
+        raise ValueError("Descriptions must have the same number of items as filenames.")
 
     blob_service_client = get_blob_service_client()
 
     image_blocks: list[types.ImageContent] = []
-    image_results: list[dict[str, str]] = []
-    for filename in filenames:
+    image_results: list[dict[str, str | int]] = []
+    for image_index, filename in enumerate(filenames):
         blob_client = blob_service_client.get_blob_client(
             container=IMAGE_CONTAINER_NAME, blob=filename
         )
         try:
             stream = await blob_client.download_blob()
-            image_bytes = await stream.readall()
+            image_bytes = cast(bytes, await stream.readall())
         except ResourceNotFoundError as exc:
             raise ValueError(
                 f"Blob '{filename}' was not found in container '{IMAGE_CONTAINER_NAME}'."
             ) from exc
 
         mime_type = get_image_mime_type(filename)
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            width, height = image.size
+            image_format = image.format or get_image_format(filename).upper()
         image_blocks.append(
             types.ImageContent(
                 type="image",
@@ -235,7 +250,13 @@ async def display_image_files(
         image_results.append(
             {
                 "filename": filename,
+                "title": get_image_title(filename),
+                "description": descriptions[image_index] if descriptions else "",
                 "mimeType": mime_type,
+                "width": width,
+                "height": height,
+                "format": image_format,
+                "sizeBytes": len(image_bytes),
             }
         )
 

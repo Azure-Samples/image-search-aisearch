@@ -1,5 +1,5 @@
 {
-    "servers": {
+    "mcpServers": {
         "image-search-local": {
             "type": "http",
             "url": "http://localhost:8001/mcp"
