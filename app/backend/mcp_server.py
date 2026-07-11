@@ -18,7 +18,7 @@ from azure.search.documents.models import VectorizableTextQuery
 from azure.storage.blob.aio import BlobServiceClient
 from dotenv import load_dotenv
 from fastmcp import FastMCP
-from fastmcp.server.apps import AppConfig, ResourceCSP
+from fastmcp.apps import AppConfig, ResourceCSP
 from fastmcp.server.lifespan import lifespan
 from fastmcp.tools.tool import ToolResult
 from fastmcp.utilities.types import File
@@ -214,7 +214,7 @@ async def display_image_files(
         "Optional image descriptions from image_search, in the same order as filenames.",
     ] = None,
 ) -> ToolResult:
-    """Render images with readable titles, descriptions, and file details."""
+    """Fetch images by filename and render them in a carousel with readable titles, descriptions, and file details."""
     if len(filenames) < 1:
         raise ValueError("Provide at least one filename.")
     if descriptions is not None and len(descriptions) != len(filenames):
@@ -271,7 +271,7 @@ async def display_image_files(
 @mcp.tool(annotations={"readOnlyHint": True})
 async def image_search(
     query: Annotated[
-        str, "Text description of images to find (e.g., 'red dress', 'blue shirt')"
+        str, "Text description of images to find (e.g., 'sunlit mountain lake')"
     ],
     max_results: Annotated[int, "Maximum number of images to return (1-20)"] = 5,
 ) -> ToolResult:
@@ -294,7 +294,7 @@ async def image_search(
                 k_nearest_neighbors=max_results, fields="embedding", text=query
             )
         ],
-        select="metadata_storage_path,verbalized_image",
+        select=["metadata_storage_path", "verbalized_image"],
     )
 
     blob_service_client = get_blob_service_client()
