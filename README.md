@@ -100,30 +100,44 @@ When `setup_search_service.py` runs (automatically during `azd up`, or manually)
 1. **Blob upload** – Images from the `pictures/` folder are uploaded to an Azure Blob Storage container. Only files placed directly under `pictures/` are uploaded.
 2. **Data source** – A Search data source is configured to point at that blob container.
 3. **Skillset** – Two skills are applied to each image:
-   - [`VisionVectorizeSkill`](https://learn.microsoft.com/azure/search/cognitive-search-skill-vision-vectorize) generates a 1024-dimensional multimodal embedding using Azure AI Vision.
-   - [`ChatCompletionSkill`](https://learn.microsoft.com/azure/search/chat-completion-skill-example-usage) (optional) produces a natural-language description of each image, stored as `verbalized_image`.
+   * [`VisionVectorizeSkill`](https://learn.microsoft.com/azure/search/cognitive-search-skill-vision-vectorize) generates a 1024-dimensional multimodal embedding using Azure AI Vision.
+   * [`ChatCompletionSkill`](https://learn.microsoft.com/azure/search/chat-completion-skill-example-usage) (optional) produces a natural-language description of each image, stored as `verbalized_image`.
 4. **Index** – Results are written to a Search index with an `embedding` vector field backed by an HNSW algorithm, plus a built-in AI Vision vectorizer so that query text is embedded at search time without extra code.
 5. **Indexer** – Runs the pipeline: blob → normalized images → skills → index projections. Each image within a blob becomes its own indexed document.
 
 At query time, the search service vectorizes the text query using the same AI Vision model and performs an approximate nearest-neighbor search over the stored embeddings.
 
-## Running locally
+## Testing deployed endpoints
 
-You can only run locally **after** having successfully run the `azd up` command. If you haven't yet, follow the steps in [Azure deployment](#azure-deployment) above.
+After running `azd up`, you can test both deployed Container Apps.
 
-### Web app
+### Deployed web app
 
-1. Run `azd auth login`
-2. Change dir to `app` and run `./start.ps1` or `./start.sh` depending on your OS.
-3. Open a browser and navigate to `http://localhost:50505`
+1. Run `azd env get-value SERVICE_ACA_URI` to get the deployed web app URL.
+2. Open the URL in a browser.
 
-### MCP server
+### Deployed MCP server
 
-1. Run `azd auth login`
-2. Run `python app/backend/mcp_server.py`
-3. The server starts on `http://localhost:8001`. Add it to your MCP client configuration (e.g. VS Code or Claude Desktop) pointing at that URL.
+1. Run `azd env get-value SERVICE_MCP_URI` to get the deployed MCP server URL.
+2. Append `/mcp` to the URL.
+3. In `.mcp.json`, replace the `url` for the `image-search-azure` entry under `mcpServers` with the resulting URL.
+4. Open your MCP client and use the `image-search-azure` server.
 
-To connect to a deployed MCP server instead, update `.vscode/mcp.json` with your deployed Container App hostname and append `/mcp` (for example, using the `SERVICE_MCP_URI` output from `azd up`).
+## Testing local endpoints
+
+You can only run the endpoints locally **after** successfully running `azd up`. If you haven't yet, follow the steps in [Azure deployment](#azure-deployment) above.
+
+### Local web app
+
+1. Run `azd auth login`.
+2. Change to the `app` directory and run `./start.ps1` or `./start.sh`, depending on your OS.
+3. Open `http://localhost:50505` in a browser.
+
+### Local MCP server
+
+1. Run `azd auth login`.
+2. Run `python app/backend/mcp_server.py`.
+3. Open your MCP client and use the `image-search-local` server from `.mcp.json`, which connects to `http://localhost:8001/mcp`.
 
 ## Adding new images
 

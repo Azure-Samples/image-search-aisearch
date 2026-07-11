@@ -136,9 +136,9 @@
             frame.innerHTML = "";
             const el = document.createElement("img");
             el.src = `data:${img.mimeType || "image/jpeg"};base64,${img.data}`;
-            el.alt = "Blob image";
+            el.alt = img.filename || "Image";
             frame.appendChild(el);
-            title.textContent = img.title || img.filename || "Image";
+            title.textContent = img.filename || "Image";
             description.textContent = img.description || "";
             description.hidden = !img.description;
             metadata.textContent = [

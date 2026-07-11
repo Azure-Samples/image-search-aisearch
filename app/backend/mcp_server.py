@@ -171,12 +171,6 @@ def get_image_mime_type(filename: str) -> str:
     return "image/jpeg"
 
 
-def get_image_title(filename: str) -> str:
-    """Create a readable image title from a blob filename."""
-    stem = Path(unquote(filename)).stem
-    return " ".join(stem.replace("_", " ").replace("-", " ").split()).title()
-
-
 THUMBNAIL_SIZE = (256, 256)
 
 
@@ -214,11 +208,13 @@ async def display_image_files(
         "Optional image descriptions from image_search, in the same order as filenames.",
     ] = None,
 ) -> ToolResult:
-    """Fetch images by filename and render them in a carousel with readable titles, descriptions, and file details."""
+    """Fetch images by filename and render them in a carousel with descriptions and file details."""
     if len(filenames) < 1:
         raise ValueError("Provide at least one filename.")
     if descriptions is not None and len(descriptions) != len(filenames):
-        raise ValueError("Descriptions must have the same number of items as filenames.")
+        raise ValueError(
+            "Descriptions must have the same number of items as filenames."
+        )
 
     blob_service_client = get_blob_service_client()
 
@@ -250,7 +246,6 @@ async def display_image_files(
         image_results.append(
             {
                 "filename": filename,
-                "title": get_image_title(filename),
                 "description": descriptions[image_index] if descriptions else "",
                 "mimeType": mime_type,
                 "width": width,

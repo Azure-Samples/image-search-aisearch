@@ -6,7 +6,7 @@
         },
         "image-search-azure": {
             "type": "http",
-            "url": "https://<your-mcp-container-app>/mcp"
+            "url": "https://ca-mcp-dzwimtrf5gzou.orangeriver-094d6c5a.westus.azurecontainerapps.io/mcp"
         }
     }
 }
