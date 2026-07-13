@@ -13,16 +13,17 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 340px;
+            height: 430px;
             width: 700px;
+            font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
         #carousel {
             position: relative;
             width: 680px;
-            height: 320px;
+            height: 410px;
             display: flex;
             align-items: center;
-            justify-content: center;
+            flex-direction: column;
         }
         #frame {
             width: 580px;
@@ -61,12 +62,36 @@
         #next { right: 0; }
         #counter {
             position: absolute;
-            bottom: 4px;
-            left: 50%;
-            transform: translateX(-50%);
+            top: 286px;
+            right: 58px;
             font-size: 12px;
             color: gray;
-            font-family: sans-serif;
+        }
+        #details {
+            width: 580px;
+            padding-top: 10px;
+            box-sizing: border-box;
+        }
+        #title {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+            line-height: 22px;
+        }
+        #description {
+            margin: 3px 0 0;
+            font-size: 13px;
+            line-height: 18px;
+            color: gray;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        #metadata {
+            margin-top: 5px;
+            font-size: 12px;
+            color: gray;
         }
     </style>
 </head>
@@ -76,6 +101,11 @@
         <div id="frame"></div>
         <button class="nav" id="next" type="button" aria-label="Next image">&#8250;</button>
         <span id="counter" aria-live="polite"></span>
+        <div id="details">
+            <h2 id="title"></h2>
+            <p id="description"></p>
+            <div id="metadata"></div>
+        </div>
     </div>
     <script type="module">
         import { App } from "https://unpkg.com/@modelcontextprotocol/ext-apps@0.4.0/app-with-deps";
@@ -89,6 +119,16 @@
         const prevBtn = document.getElementById("prev");
         const nextBtn = document.getElementById("next");
         const counter = document.getElementById("counter");
+        const title = document.getElementById("title");
+        const description = document.getElementById("description");
+        const metadata = document.getElementById("metadata");
+
+        function formatBytes(bytes) {
+            if (!Number.isFinite(bytes)) return "";
+            if (bytes < 1024) return `${bytes} B`;
+            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+            return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+        }
 
         function show(i) {
             index = i;
@@ -96,8 +136,16 @@
             frame.innerHTML = "";
             const el = document.createElement("img");
             el.src = `data:${img.mimeType || "image/jpeg"};base64,${img.data}`;
-            el.alt = "Blob image";
+            el.alt = img.filename || "Image";
             frame.appendChild(el);
+            title.textContent = img.filename || "Image";
+            description.textContent = img.description || "";
+            description.hidden = !img.description;
+            metadata.textContent = [
+                img.width && img.height ? `${img.width} × ${img.height}` : "",
+                img.format || "",
+                formatBytes(img.sizeBytes),
+            ].filter(Boolean).join(" · ");
             prevBtn.disabled = index === 0;
             nextBtn.disabled = index === images.length - 1;
             counter.textContent = images.length > 1 ? `${index + 1} / ${images.length}` : "";
@@ -106,8 +154,13 @@
         prevBtn.addEventListener("click", () => { if (index > 0) show(index - 1); });
         nextBtn.addEventListener("click", () => { if (index < images.length - 1) show(index + 1); });
 
-        app.ontoolresult = ({ content }) => {
-            images = (content || []).filter((block) => block.type === "image");
+        app.ontoolresult = ({ content, structuredContent }) => {
+            const imageContent = (content || []).filter((block) => block.type === "image");
+            const imageMetadata = structuredContent?.images || [];
+            images = imageContent.map((image, imageIndex) => ({
+                ...image,
+                ...(imageMetadata[imageIndex] || {}),
+            }));
             if (images.length > 0) show(0);
         };
 

@@ -64,7 +64,7 @@ param openAiResourceGroupName string = '' // Set in main.parameters.json
 param chatCompletionModelName string = 'gpt-4.1-mini' // Set in main.parameters.json
 param chatCompletionDeploymentName string = 'gpt-4.1-mini' // Set in main.parameters.json
 param chatCompletionModelVersion string = '2025-04-14' // Set in main.parameters.json
-param chatCompletionDeploymentCapacity int = 30 // Set in main.parameters.json
+param chatCompletionDeploymentCapacity int = 100 // Set in main.parameters.json
 
 @description('Whether the deployment is running on GitHub Actions')
 param runningOnGh string = ''

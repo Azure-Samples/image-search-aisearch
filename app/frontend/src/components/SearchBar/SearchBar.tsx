@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Stack, TextField } from "@fluentui/react";
-import { Button, Tooltip } from "@fluentui/react-components";
-import { Send28Filled } from "@fluentui/react-icons";
+import { Button } from "@fluentui/react-components";
+import { Search24Regular } from "@fluentui/react-icons";
 
 import styles from "./SearchBar.module.css";
 
@@ -57,9 +57,15 @@ export const SearchBar = ({ onSend, disabled, placeholder, clearOnSend }: Props)
                 onKeyDown={onEnterPress}
             />
             <div className={styles.searchBarButtonsContainer}>
-                <Tooltip content="Search button" relationship="label">
-                    <Button size="large" icon={<Send28Filled primaryFill="rgba(115, 118, 225, 1)" />} onClick={sendSearch} />
-                </Tooltip>
+                <Button
+                    appearance="primary"
+                    className={styles.searchButton}
+                    size="large"
+                    icon={<Search24Regular />}
+                    onClick={sendSearch}
+                >
+                    Search
+                </Button>
             </div>
         </Stack>
     );

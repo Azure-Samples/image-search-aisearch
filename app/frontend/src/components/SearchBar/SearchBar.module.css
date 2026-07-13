@@ -17,5 +17,31 @@
 .searchBarButtonsContainer {
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
+    justify-content: center;
+}
+
+.searchButton.searchButton {
+    min-width: 112px;
+    height: 44px;
+    padding: 0 20px;
+    border: 1px solid #0b5cab;
+    border-radius: 6px;
+    background-color: #0f6cbd;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.18);
+    color: white;
+    font-weight: 600;
+}
+
+.searchButton.searchButton:hover {
+    border-color: #0f548c;
+    background-color: #115ea3;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.22);
+    color: white;
+}
+
+.searchButton.searchButton:active {
+    border-color: #0c3b5e;
+    background-color: #0c3b5e;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    color: white;
 }

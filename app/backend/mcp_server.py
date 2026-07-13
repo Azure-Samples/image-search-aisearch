@@ -3,7 +3,7 @@ import logging
 import os
 import subprocess
 import base64
-from typing import Annotated
+from typing import Annotated, cast
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -18,7 +18,7 @@ from azure.search.documents.models import VectorizableTextQuery
 from azure.storage.blob.aio import BlobServiceClient
 from dotenv import load_dotenv
 from fastmcp import FastMCP
-from fastmcp.server.apps import AppConfig, ResourceCSP
+from fastmcp.apps import AppConfig, ResourceCSP
 from fastmcp.server.lifespan import lifespan
 from fastmcp.tools.tool import ToolResult
 from fastmcp.utilities.types import File
@@ -203,28 +203,39 @@ async def display_image_files(
     filenames: Annotated[
         list[str], "List of blob filenames to retrieve and display in a carousel."
     ],
+    descriptions: Annotated[
+        list[str] | None,
+        "Optional image descriptions from image_search, in the same order as filenames.",
+    ] = None,
 ) -> ToolResult:
-    """Fetch images from blob storage by filename and render them in a carousel MCP App."""
+    """Fetch images by filename and render them in a carousel with descriptions and file details."""
     if len(filenames) < 1:
         raise ValueError("Provide at least one filename.")
+    if descriptions is not None and len(descriptions) != len(filenames):
+        raise ValueError(
+            "Descriptions must have the same number of items as filenames."
+        )
 
     blob_service_client = get_blob_service_client()
 
     image_blocks: list[types.ImageContent] = []
-    image_results: list[dict[str, str]] = []
-    for filename in filenames:
+    image_results: list[dict[str, str | int]] = []
+    for image_index, filename in enumerate(filenames):
         blob_client = blob_service_client.get_blob_client(
             container=IMAGE_CONTAINER_NAME, blob=filename
         )
         try:
             stream = await blob_client.download_blob()
-            image_bytes = await stream.readall()
+            image_bytes = cast(bytes, await stream.readall())
         except ResourceNotFoundError as exc:
             raise ValueError(
                 f"Blob '{filename}' was not found in container '{IMAGE_CONTAINER_NAME}'."
             ) from exc
 
         mime_type = get_image_mime_type(filename)
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            width, height = image.size
+            image_format = image.format or get_image_format(filename).upper()
         image_blocks.append(
             types.ImageContent(
                 type="image",
@@ -235,7 +246,12 @@ async def display_image_files(
         image_results.append(
             {
                 "filename": filename,
+                "description": descriptions[image_index] if descriptions else "",
                 "mimeType": mime_type,
+                "width": width,
+                "height": height,
+                "format": image_format,
+                "sizeBytes": len(image_bytes),
             }
         )
 
@@ -250,7 +266,7 @@ async def display_image_files(
 @mcp.tool(annotations={"readOnlyHint": True})
 async def image_search(
     query: Annotated[
-        str, "Text description of images to find (e.g., 'red dress', 'blue shirt')"
+        str, "Text description of images to find (e.g., 'sunlit mountain lake')"
     ],
     max_results: Annotated[int, "Maximum number of images to return (1-20)"] = 5,
 ) -> ToolResult:
@@ -273,7 +289,7 @@ async def image_search(
                 k_nearest_neighbors=max_results, fields="embedding", text=query
             )
         ],
-        select="metadata_storage_path,verbalized_image",
+        select=["metadata_storage_path", "verbalized_image"],
     )
 
     blob_service_client = get_blob_service_client()
