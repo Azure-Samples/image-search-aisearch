@@ -9,7 +9,7 @@ from urllib.parse import unquote, urlparse
 
 import io
 
-from PIL import Image
+from PIL import Image as PILImage
 from mcp import types
 from azure.identity import AzureDeveloperCliCredential, ManagedIdentityCredential
 from azure.core.exceptions import ResourceNotFoundError
@@ -21,7 +21,7 @@ from fastmcp import FastMCP
 from fastmcp.apps import AppConfig, ResourceCSP
 from fastmcp.server.lifespan import lifespan
 from fastmcp.tools.tool import ToolResult
-from fastmcp.utilities.types import File
+from fastmcp.utilities.types import Image
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.WARNING)
@@ -139,10 +139,13 @@ def get_blob_service_client() -> BlobServiceClient:
 
 
 def get_image_format(url: str) -> str:
-    """Extract image extension from URL/path."""
+    """Extract image format from URL/path as an IANA MIME subtype."""
     parsed_url = urlparse(url)
     extension = Path(unquote(parsed_url.path)).suffix.lower().lstrip(".")
-    if extension in {"jpg", "jpeg", "png", "gif", "webp"}:
+    # "jpg" is a file extension, not a MIME subtype; image/jpg is not registered.
+    if extension == "jpg":
+        return "jpeg"
+    if extension in {"jpeg", "png", "gif", "webp"}:
         return extension
     return "jpeg"  # Default when extension is missing/unsupported
 
@@ -162,10 +165,7 @@ def get_blob_reference_from_url(url: str) -> tuple[str, str]:
 
 def get_image_mime_type(filename: str) -> str:
     """Infer MIME type for supported image formats from blob filename."""
-    image_format = get_image_format(filename)
-    mime_type = (
-        "image/jpeg" if image_format in {"jpg", "jpeg"} else f"image/{image_format}"
-    )
+    mime_type = f"image/{get_image_format(filename)}"
     if mime_type in ALLOWED_IMAGE_MIME_TYPES:
         return mime_type
     return "image/jpeg"
@@ -176,7 +176,7 @@ THUMBNAIL_SIZE = (256, 256)
 
 def resize_image_bytes(data: bytes, image_format: str) -> bytes:
     """Resize image to a thumbnail to reduce token usage when sending to LLM."""
-    with Image.open(io.BytesIO(data)) as img:
+    with PILImage.open(io.BytesIO(data)) as img:
         img.thumbnail(THUMBNAIL_SIZE)
         out = io.BytesIO()
         save_format = (
@@ -233,7 +233,7 @@ async def display_image_files(
             ) from exc
 
         mime_type = get_image_mime_type(filename)
-        with Image.open(io.BytesIO(image_bytes)) as image:
+        with PILImage.open(io.BytesIO(image_bytes)) as image:
             width, height = image.size
             image_format = image.format or get_image_format(filename).upper()
         image_blocks.append(
@@ -294,7 +294,7 @@ async def image_search(
 
     blob_service_client = get_blob_service_client()
 
-    files: list[File] = []
+    images: list[Image] = []
     image_results: list[dict[str, str]] = []
     result_index = 0
     async for result in results:
@@ -312,11 +312,8 @@ async def image_search(
             display_name = os.path.basename(blob_name)
             if not display_name:
                 display_name = f"image-{result_index}.{image_format}"
-            file_basename = Path(display_name).stem
             thumbnail_bytes = resize_image_bytes(image_bytes, image_format)
-            files.append(
-                File(data=thumbnail_bytes, format=image_format, name=file_basename)
-            )
+            images.append(Image(data=thumbnail_bytes, format=image_format))
             image_results.append(
                 {
                     "filename": blob_name,
@@ -332,7 +329,7 @@ async def image_search(
             continue
 
     return ToolResult(
-        content=files,
+        content=images,
         structured_content={
             "query": query,
             "results": image_results,
