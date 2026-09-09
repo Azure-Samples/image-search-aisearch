@@ -68,11 +68,13 @@ def mock_env(monkeypatch):
         monkeypatch.setenv("RUNNING_IN_PRODUCTION", "1")
 
         # Mock both credential classes that might be used
-        with mock.patch("app.AzureDeveloperCliCredential") as mock_azd_cred:
-            with mock.patch("app.ManagedIdentityCredential") as mock_mi_cred:
-                mock_azd_cred.return_value = MockAzureCredential()
-                mock_mi_cred.return_value = MockAzureCredential()
-                yield
+        with (
+            mock.patch("app.AzureDeveloperCliCredential") as mock_azd_cred,
+            mock.patch("app.ManagedIdentityCredential") as mock_mi_cred,
+        ):
+            mock_azd_cred.return_value = MockAzureCredential()
+            mock_mi_cred.return_value = MockAzureCredential()
+            yield
 
 
 @pytest.fixture

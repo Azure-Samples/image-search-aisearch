@@ -14,8 +14,8 @@ import argparse
 from dataclasses import dataclass
 from pathlib import Path
 
-from PIL import Image
 import pillow_heif
+from PIL import Image
 
 # Register HEIF support with Pillow before opening files.
 pillow_heif.register_heif_opener()

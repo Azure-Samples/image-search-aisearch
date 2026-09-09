@@ -9,8 +9,8 @@ No environment variables or azd lookups are performed.
 
 import sys
 import time
-import urllib.request
 import urllib.error
+import urllib.request
 
 from playwright.sync_api import Playwright, sync_playwright
 
@@ -33,7 +33,7 @@ def wait_for_url(base_url: str, max_retries: int = 30, delay: int = 10) -> None:
             if attempt < max_retries:
                 time.sleep(delay)
 
-    raise Exception(
+    raise TimeoutError(
         f"Service at {url} did not become reachable after {max_retries} attempts"
     )
 
@@ -81,7 +81,7 @@ def main() -> int:
             run_test(pw, base_url)
         print("Playwright E2E test succeeded.")
         return 0
-    except Exception as e:  # broad for CLI convenience
+    except Exception as e:  # noqa: BLE001 - broad for CLI convenience
         print(f"Playwright E2E test failed: {e}", file=sys.stderr)
         return 1
 

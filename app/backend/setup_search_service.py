@@ -1,47 +1,47 @@
-import subprocess
 import json
-from dotenv import load_dotenv
-import os
 import logging
+import os
+import subprocess
 from pathlib import Path
 
 from azure.identity import AzureDeveloperCliCredential
 from azure.mgmt.storage import StorageManagementClient
-from azure.storage.blob import BlobServiceClient
 from azure.search.documents.indexes import SearchIndexClient, SearchIndexerClient
-from azure.search.documents.indexes.models import (
-    AIServicesVisionVectorizer,
-    AIServicesVisionParameters,
-    SearchField,
-    AIServicesAccountIdentity,
-    SearchFieldDataType,
-    HnswAlgorithmConfiguration,
-    VectorSearch,
-    VectorSearchProfile,
-    SearchIndex,
-    SearchIndexerDataSourceConnection,
-    SearchIndexerDataContainer,
-    SearchIndexer,
-    VisionVectorizeSkill,
-    ChatCompletionSkill,
-    InputFieldMappingEntry,
-    OutputFieldMappingEntry,
-    SearchableField,
-    SimpleField,
-    LexicalAnalyzerName,
-    # Projection & indexing parameter related
-    SearchIndexerIndexProjection,
-    SearchIndexerIndexProjectionSelector,
-    SearchIndexerIndexProjectionsParameters,
-    IndexProjectionMode,
-    IndexingParameters,
-    IndexingParametersConfiguration,
-    BlobIndexerImageAction,
-)
 
 # (Removed unused Input/OutputFieldMappingEntry imports; using raw field mappings only)
 # Some preview constructs (skillset) still require generated models import
 from azure.search.documents.indexes._generated.models import SearchIndexerSkillset
+from azure.search.documents.indexes.models import (
+    AIServicesAccountIdentity,
+    AIServicesVisionParameters,
+    AIServicesVisionVectorizer,
+    BlobIndexerImageAction,
+    ChatCompletionSkill,
+    HnswAlgorithmConfiguration,
+    IndexingParameters,
+    IndexingParametersConfiguration,
+    IndexProjectionMode,
+    InputFieldMappingEntry,
+    LexicalAnalyzerName,
+    OutputFieldMappingEntry,
+    SearchableField,
+    SearchField,
+    SearchFieldDataType,
+    SearchIndex,
+    SearchIndexer,
+    SearchIndexerDataContainer,
+    SearchIndexerDataSourceConnection,
+    # Projection & indexing parameter related
+    SearchIndexerIndexProjection,
+    SearchIndexerIndexProjectionSelector,
+    SearchIndexerIndexProjectionsParameters,
+    SimpleField,
+    VectorSearch,
+    VectorSearchProfile,
+    VisionVectorizeSkill,
+)
+from azure.storage.blob import BlobServiceClient
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
@@ -88,17 +88,20 @@ def main():
 def load_azd_env():
     """Get path to current azd env file and load file using python-dotenv"""
     result = subprocess.run(
-        ["azd", "env", "list", "-o", "json"], capture_output=True, text=True
+        ["azd", "env", "list", "-o", "json"],
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if result.returncode != 0:
-        raise Exception("Error loading azd env")
+        raise RuntimeError("Error loading azd env")
     env_json = json.loads(result.stdout)
     env_file_path = None
     for entry in env_json:
         if entry["IsDefault"]:
             env_file_path = entry["DotEnvPath"]
     if not env_file_path:
-        raise Exception("No default azd env file found")
+        raise RuntimeError("No default azd env file found")
     logger.info(f"Loading azd env from {env_file_path}")
     load_dotenv(env_file_path, override=True)
 
