@@ -6,7 +6,7 @@ azure-storage-blob==12.27.1
 Quart==0.20.0
 typing_extensions>=4.12.2
 gunicorn==23.0.0
-uvicorn==0.40.0
+uvicorn==0.52.4
 python-dotenv==1.2.1
 fastmcp==3.4.4
 Pillow==12.1.0
