@@ -2,7 +2,7 @@ aiohttp==3.13.3
 azure-identity==1.25.1
 azure-mgmt-storage==24.0.0
 azure-search-documents==11.7.0b1
-azure-storage-blob==12.27.1
+azure-storage-blob==12.30.1
 Quart==0.20.0
 typing_extensions>=4.12.2
 gunicorn==23.0.0
