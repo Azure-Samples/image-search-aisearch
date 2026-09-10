@@ -1,18 +1,15 @@
+import base64
+import io
 import json
 import logging
 import os
 import subprocess
-import base64
-from typing import Annotated, cast
 from pathlib import Path
+from typing import Annotated, cast
 from urllib.parse import unquote, urlparse
 
-import io
-
-from PIL import Image as PILImage
-from mcp import types
-from azure.identity import AzureDeveloperCliCredential, ManagedIdentityCredential
 from azure.core.exceptions import ResourceNotFoundError
+from azure.identity import AzureDeveloperCliCredential, ManagedIdentityCredential
 from azure.search.documents.aio import SearchClient
 from azure.search.documents.models import VectorizableTextQuery
 from azure.storage.blob.aio import BlobServiceClient
@@ -22,6 +19,8 @@ from fastmcp.apps import AppConfig, ResourceCSP
 from fastmcp.server.lifespan import lifespan
 from fastmcp.tools.tool import ToolResult
 from fastmcp.utilities.types import Image
+from mcp import types
+from PIL import Image as PILImage
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.WARNING)
@@ -66,17 +65,20 @@ def load_image_viewer_html() -> str:
 def load_azd_env():
     """Get path to current azd env file and load file using python-dotenv"""
     result = subprocess.run(
-        ["azd", "env", "list", "-o", "json"], capture_output=True, text=True
+        ["azd", "env", "list", "-o", "json"],
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if result.returncode != 0:
-        raise Exception("Error loading azd env")
+        raise RuntimeError("Error loading azd env")
     env_json = json.loads(result.stdout)
     env_file_path = None
     for entry in env_json:
         if entry["IsDefault"]:
             env_file_path = entry["DotEnvPath"]
     if not env_file_path:
-        raise Exception("No default azd env file found")
+        raise RuntimeError("No default azd env file found")
     logger.info(f"Loading azd env from {env_file_path}")
     load_dotenv(env_file_path, override=True)
 
@@ -324,7 +326,7 @@ async def image_search(
             logger.info(
                 f"Fetched image from {url} ({len(image_bytes)} bytes -> {len(thumbnail_bytes)} bytes thumbnail)"
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - skip individual failed images
             logger.error(f"Failed to fetch image from {url}: {e}")
             continue
 
